@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Remates" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Remates</title>
+  <style>
+    :root {
+      --bg: #0b1220; --surface: #111c2d; --surface2: #172236; --border: #1e3050;
+      --accent: #f97316; --accent2: #fbbf24; --text: #e2eaf5; --muted: #64748b;
+      --font: Calibri, 'Calibri', 'Gill Sans', sans-serif;
+      --mono: 'Courier New', Courier, monospace;
+      --radius: 12px;
+      --safe-top: env(safe-area-inset-top);
+      --safe-bottom: env(safe-area-inset-bottom);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    body { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    /* HEADER */
+    #appHeader {
+      padding: calc(14px + var(--safe-top)) 18px 14px;
+      background: #0b1220;
+      border-bottom: 2px solid var(--accent);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), #ea580c); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .logo-text { font-size: 14px; font-weight: 700; line-height: 1.2; }
+    .logo-text span { color: var(--accent); }
+    .header-actions { display: flex; gap: 8px; }
+    .btn-icon { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 12px; font-size: 15px; cursor: pointer; font-family: var(--font); }
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 14px; }
+    #searchInput { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 11px 11px 36px; color: var(--text); font-family: var(--font); font-size: 14px; outline: none; }
+    #searchInput:focus { border-color: var(--accent); }
+    #searchInput::placeholder { color: var(--muted); }
+
+    /* FILTER BARS */
+    #filterBars { background: #0b1220; border-bottom: 1px solid var(--border); z-index: 99; }
+    .bar-row { display: flex; gap: 10px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; }
+    .bar-row::-webkit-scrollbar { display: none; }
+
+    /* CHIPS (multi select) */
+    .chip {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 18px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      white-space: nowrap;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .chip .n { font-size: 11px; font-weight: 800; background: rgba(0,0,0,0.2); padding: 1px 7px; border-radius: 100px; min-width: 24px; text-align: center; }
+    .chip.active { background: var(--accent); border-color: var(--accent); color: #0b1220; }
+
+    .chip.c-prox { color: #10b981; border-color: rgba(16,185,129,0.4); }
+    .chip.c-prox.active { background: #10b981; border-color: #10b981; color: #fff; }
+    .chip.c-pasado { color: #64748b; border-color: rgba(100,116,139,0.4); }
+    .chip.c-pasado.active { background: #64748b; border-color: #64748b; color: #fff; }
+    .chip.c-zoom { color: #3b82f6; border-color: rgba(59,130,246,0.4); }
+    .chip.c-zoom.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .chip.c-decsi { color: #10b981; border-color: rgba(16,185,129,0.4); }
+    .chip.c-decsi.active { background: #10b981; border-color: #10b981; color: #fff; }
+    .chip.c-decver { color: #fbbf24; border-color: rgba(251,191,36,0.4); }
+    .chip.c-decver.active { background: #fbbf24; border-color: #fbbf24; color: #0b1220; }
+
+    /* DEMANDANTE BTNS (con contador dinámico) */
+    .abog-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      white-space: nowrap;
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.15s;
+    }
+    .abog-btn .n { font-size: 10px; font-weight: 800; background: rgba(0,0,0,0.2); padding: 1px 6px; border-radius: 100px; min-width: 20px; text-align: center; transition: all 0.15s; }
+    .abog-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(249,115,22,0.07); }
+    .abog-btn.active .n { background: rgba(249,115,22,0.2); }
+
+    /* MAIN */
+    main { flex: 1; padding: 14px 14px calc(16px + var(--safe-bottom)); overflow-y: auto; }
+
+    /* CARDS */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 15px; margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden; transition: opacity 0.15s; }
+    .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sc, var(--muted)); }
+    .card:active { opacity: 0.75; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; gap: 8px; }
+    .card-name { font-size: 14px; font-weight: 700; flex: 1; line-height: 1.35; }
+    .sbadge { flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card-sub { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 9px; line-height: 1.5; }
+    .card-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+    .tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+    .tag.hl { color: var(--accent); border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.07); }
+    .tag.zoom { color: #3b82f6; border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.07); }
+    .tag.dec-si { color: #10b981; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.07); }
+    .tag.dec-ver { color: #fbbf24; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.07); }
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .cg-item { display: flex; flex-direction: column; gap: 1px; }
+    .cg-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .cg-val { font-size: 12px; color: var(--text); font-family: var(--mono); }
+    .card-foot { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .cmonto { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--accent2); }
+    .cfecha { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    /* STATES */
+    .state-box { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .state-box .icon { font-size: 44px; margin-bottom: 14px; }
+    .state-box h3 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .state-box p { font-size: 13px; line-height: 1.6; }
+    .spinner { width: 34px; height: 34px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* MODALS */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .sheet { background: var(--surface); border-radius: 22px 22px 0 0; padding: 22px 18px calc(22px + var(--safe-bottom)); width: 100%; max-height: 90dvh; overflow-y: auto; transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.32,0.72,0,1); }
+    .overlay.open .sheet { transform: translateY(0); }
+    .handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+    .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+    .sheet-sub { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 12px; }
+    .sec-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; margin-top: 18px; }
+    .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .di { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px; }
+    .di.full { grid-column: 1/-1; }
+    .di-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .di-val { font-size: 13px; font-weight: 600; color: var(--text); word-break: break-word; line-height: 1.4; }
+    .di-val.ac { color: var(--accent); font-family: var(--mono); }
+    .di-val.mo { color: var(--accent2); font-family: var(--mono); font-size: 16px; font-weight: 700; }
+    .di-val.mu { color: var(--muted); font-size: 12px; }
+
+    /* ACTION BUTTONS in modal */
+    .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .action-btn { flex: 1; min-width: 140px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; text-decoration: none; }
+    .action-btn:active { opacity: 0.75; }
+    .action-btn.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; }
+
+    /* CONFIG modal */
+    .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .cfg-row label { font-size: 12px; color: var(--muted); }
+    .cfg-row input, .cfg-row select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 8px; font-family: var(--mono); font-size: 12px; width: 70px; text-align: center; }
+    .btn-save { width: 100%; background: var(--accent); border: none; color: #0b1220; padding: 13px; border-radius: 10px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; margin-top: 14px; }
+    .btn-close { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 12px; border-radius: 10px; font-size: 13px; font-family: var(--font); cursor: pointer; margin-top: 8px; }
+
+    .results-info { font-size: 11px; color: var(--muted); padding: 0 4px 10px; font-family: var(--mono); }
+  </style>
+</head>
+<body>
+
+<header id="appHeader">
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-icon">🔨</div>
+      <div class="logo-text">REMATES<br><span>seguimiento</span></div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btnReload" title="Recargar">↻</button>
+      <button class="btn-icon" id="btnConfig" title="Configurar">⚙</button>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input id="searchInput" type="search" placeholder="Buscar inmueble, rol, tribunal, demandante..." autocomplete="off" />
+  </div>
+</header>
+
+<div id="filterBars">
+  <div class="bar-row" id="estadoBar"></div>
+  <div class="bar-row" id="abogadoBar"></div>
+</div>
+
+<main>
+  <div id="resultsInfo" class="results-info"></div>
+  <div id="mainContent"></div>
+</main>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailOverlay">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div id="detailContent"></div>
+    <button class="btn-close" id="btnCloseDetail" style="margin-top:18px">Cerrar</button>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="overlay" id="configOverlay">
+  <div class="sheet">
+    <div class="handle"></div>
+    <h2 class="sheet-title">Configurar columnas</h2>
+    <p class="sheet-sub">Ajusta a qué columna corresponde cada dato</p>
+    <div class="cfg-row"><label>Fila encabezado</label><select id="hasHeader"><option value="1">Sí</option><option value="0">No</option></select></div>
+    <div class="cfg-row"><label>Fecha remate</label><input id="col_fecha" /></div>
+    <div class="cfg-row"><label>Hora</label><input id="col_hora" /></div>
+    <div class="cfg-row"><label>Fecha publicación</label><input id="col_fechapub" /></div>
+    <div class="cfg-row"><label>Zoom (SI/NO)</label><input id="col_zoom" /></div>
+    <div class="cfg-row"><label>Inmueble</label><input id="col_inmueble" /></div>
+    <div class="cfg-row"><label>Ubicación (link)</label><input id="col_ubicacion" /></div>
+    <div class="cfg-row"><label>Mínimo</label><input id="col_minimo" /></div>
+    <div class="cfg-row"><label>Documentos (link)</label><input id="col_docs" /></div>
+    <div class="cfg-row"><label>Demandante</label><input id="col_demandante" /></div>
+    <div class="cfg-row"><label>Juicio (rol)</label><input id="col_juicio" /></div>
+    <div class="cfg-row"><label>Tribunal</label><input id="col_tribunal" /></div>
+    <div class="cfg-row"><label>Precio compra</label><input id="col_pcompra" /></div>
+    <div class="cfg-row"><label>Año compra</label><input id="col_acompra" /></div>
+    <div class="cfg-row"><label>Superficie</label><input id="col_superficie" /></div>
+    <div class="cfg-row"><label>Avalúo fiscal</label><input id="col_avaluo" /></div>
+    <div class="cfg-row"><label>Deuda contribuciones</label><input id="col_contrib" /></div>
+    <div class="cfg-row"><label>Forma consignación</label><input id="col_consig" /></div>
+    <div class="cfg-row"><label>Observaciones</label><input id="col_obs" /></div>
+    <div class="cfg-row"><label>Decisión</label><input id="col_decision" /></div>
+    <div class="cfg-row"><label>Monto adjudicación</label><input id="col_madj" /></div>
+    <div class="cfg-row"><label>Resultado</label><input id="col_resultado" /></div>
+    <div class="cfg-row"><label>S3</label><input id="col_s3" /></div>
+    <button class="btn-save" id="btnSaveConfig">Guardar</button>
+    <button class="btn-close" id="btnCloseConfig">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1v4uEP4KTn7Iq7OvqRbrWtHr4BwgS-j3s';
+const DEFAULT_CFG = {
+  hasHeader:'1',
+  col_fecha:'A', col_hora:'B', col_fechapub:'C', col_zoom:'D',
+  col_inmueble:'E', col_ubicacion:'F', col_minimo:'G', col_docs:'H',
+  col_demandante:'I', col_juicio:'J', col_tribunal:'K',
+  col_pcompra:'L', col_acompra:'M', col_superficie:'N', col_avaluo:'O',
+  col_contrib:'P', col_consig:'Q', col_obs:'R',
+  col_decision:'S', col_madj:'T', col_resultado:'U', col_s3:'V'
+};
+
+let allRemates = [];
+let selDemandantes = new Set();
+let selProx = false;
+let selPasado = false;
+let selZoom = false;
+let selDecSi = false;
+let selDecVer = false;
+let selTribunal = null;
+
+let config = Object.assign({}, DEFAULT_CFG);
+const savedCfg = localStorage.getItem('remates_cfg');
+if (savedCfg) {
+  try { config = Object.assign({}, DEFAULT_CFG, JSON.parse(savedCfg)); } catch(e){}
+}
+
+// ── Helpers ──
+function ci(v) {
+  if (!v) return -1;
+  v = v.toString().trim();
+  if (/^\d+$/.test(v)) return parseInt(v)-1;
+  return v.toUpperCase().charCodeAt(0)-65;
+}
+
+// Excel serial date → JS Date
+function excelSerialToDate(n) {
+  const num = parseFloat(n);
+  if (isNaN(num) || num < 10000) return null;
+  const ms = (num - 25569) * 86400 * 1000;
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function parseFechaCell(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  // intento serial
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const d = excelSerialToDate(s);
+    if (d) return d;
+  }
+  // intento ISO o formato directo
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatFecha(v) {
+  if (!v) return '';
+  const d = v instanceof Date ? v : parseFechaCell(v);
+  if (!d) return String(v);
+  return d.toLocaleDateString('es-CL', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function formatFechaCorta(v) {
+  if (!v) return '';
+  const d = v instanceof Date ? v : parseFechaCell(v);
+  if (!d) return String(v);
+  const dias = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
+  return `${dias[d.getDay()]} ${d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
+}
+
+function formatHora(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const num = parseFloat(v);
+  if (!isNaN(num) && num >= 0 && num < 1) {
+    // fracción de día → hora
+    const totalMin = Math.round(num * 24 * 60);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+  return String(v).trim();
+}
+
+function formatMonto(m) {
+  if (m === null || m === undefined || m === '') return '';
+  const s = String(m).trim();
+  if (!s) return '';
+  // si tiene letras (ej "720 + 646.000"), devolver tal cual
+  if (/[a-zA-Z]/.test(s) && !/^[0-9.eE+-]+$/.test(s)) return s;
+  const n = parseFloat(s.replace(/[^0-9.eE+-]/g,''));
+  if (isNaN(n)) return s;
+  return '$' + Math.round(n).toLocaleString('es-CL');
+}
+
+function diasDesde(d) {
+  if (!d) return null;
+  const fecha = d instanceof Date ? d : parseFechaCell(d);
+  if (!fecha) return null;
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  fecha.setHours(0,0,0,0);
+  return Math.round((fecha - hoy) / (1000*60*60*24));
+}
+
+function isUrl(s) {
+  return typeof s === 'string' && /^https?:\/\//i.test(s.trim());
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── LOAD ──
+async function loadData() {
+  showLoading();
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Error HTTP '+res.status);
+    const text = await res.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+    if (!match) throw new Error('Formato inesperado de la planilla');
+    const json = JSON.parse(match[1]);
+    const rows = json.table.rows || [];
+    const start = config.hasHeader === '1' ? 1 : 0;
+
+    function gcv(row, col) {
+      const idx = ci(col);
+      if (idx < 0 || !row.c || idx >= row.c.length) return '';
+      const cell = row.c[idx];
+      if (!cell || cell.v === null || cell.v === undefined) return '';
+      // valor formateado si existe, si no el crudo
+      const v = (cell.f !== null && cell.f !== undefined && cell.f !== '') ? cell.f : cell.v;
+      return String(v).trim();
+    }
+
+    function gcvRaw(row, col) {
+      const idx = ci(col);
+      if (idx < 0 || !row.c || idx >= row.c.length) return '';
+      const cell = row.c[idx];
+      if (!cell || cell.v === null || cell.v === undefined) return '';
+      return cell.v;
+    }
+
+    allRemates = rows.slice(start).map((row, i) => ({
+      id: i,
+      fecha: gcvRaw(row, config.col_fecha),
+      hora: gcvRaw(row, config.col_hora),
+      fechaPub: gcvRaw(row, config.col_fechapub),
+      zoom: gcv(row, config.col_zoom),
+      inmueble: gcv(row, config.col_inmueble),
+      ubicacion: gcv(row, config.col_ubicacion),
+      minimo: gcv(row, config.col_minimo),
+      docs: gcv(row, config.col_docs),
+      demandante: gcv(row, config.col_demandante),
+      juicio: gcv(row, config.col_juicio),
+      tribunal: gcv(row, config.col_tribunal),
+      pcompra: gcv(row, config.col_pcompra),
+      acompra: gcv(row, config.col_acompra),
+      superficie: gcv(row, config.col_superficie),
+      avaluo: gcv(row, config.col_avaluo),
+      contrib: gcv(row, config.col_contrib),
+      consig: gcv(row, config.col_consig),
+      obs: gcv(row, config.col_obs),
+      decision: gcv(row, config.col_decision),
+      madj: gcv(row, config.col_madj),
+      resultado: gcv(row, config.col_resultado),
+      s3: gcv(row, config.col_s3),
+    })).filter(r => r.inmueble || r.juicio);
+
+    // Pre-calcular fecha como Date
+    allRemates.forEach(r => { r._fecha = parseFechaCell(r.fecha); });
+
+    // Reset filtros
+    selDemandantes.clear();
+    selProx = false; selPasado = false; selZoom = false;
+    selDecSi = false; selDecVer = false; selTribunal = null;
+
+    buildEstadoBar();
+    buildTribunalBar();
+    applyFilters();
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+// ── ESTADO BAR (chips de filtro principal) ──
+function buildEstadoBar() {
+  const bar = document.getElementById('estadoBar');
+  bar.innerHTML = '';
+
+  const proxCount = allRemates.filter(r => {
+    const d = diasDesde(r._fecha);
+    return d !== null && d >= 0;
+  }).length;
+
+  const pasadoCount = allRemates.filter(r => {
+    const d = diasDesde(r._fecha);
+    return d !== null && d < 0;
+  }).length;
+
+  const zoomCount = allRemates.filter(r => (r.zoom||'').toUpperCase().trim() === 'SI').length;
+
+  const decSiCount = allRemates.filter(r => (r.decision||'').toUpperCase().trim() === 'SI').length;
+  const decVerCount = allRemates.filter(r => {
+    const d = (r.decision||'').toUpperCase().trim();
+    return d === 'VER' || d.includes('VER');
+  }).length;
+
+  // PRÓXIMOS
+  if (proxCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-prox';
+    chip.dataset.key = 'prox';
+    chip.innerHTML = `<span class="dot"></span>PRÓXIMOS <span class="n">${proxCount}</span>`;
+    chip.addEventListener('click', () => {
+      selProx = !selProx;
+      if (selProx) selPasado = false;
+      chip.classList.toggle('active', selProx);
+      const pasadoChip = document.querySelector('.chip[data-key="pasado"]');
+      if (pasadoChip) pasadoChip.classList.remove('active');
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // PASADOS
+  if (pasadoCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-pasado';
+    chip.dataset.key = 'pasado';
+    chip.innerHTML = `<span class="dot"></span>PASADOS <span class="n">${pasadoCount}</span>`;
+    chip.addEventListener('click', () => {
+      selPasado = !selPasado;
+      if (selPasado) selProx = false;
+      chip.classList.toggle('active', selPasado);
+      const proxChip = document.querySelector('.chip[data-key="prox"]');
+      if (proxChip) proxChip.classList.remove('active');
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // ZOOM
+  if (zoomCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-zoom';
+    chip.dataset.key = 'zoom';
+    chip.innerHTML = `<span class="dot"></span>ZOOM <span class="n">${zoomCount}</span>`;
+    chip.addEventListener('click', () => {
+      selZoom = !selZoom;
+      chip.classList.toggle('active', selZoom);
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // DECISIÓN SI
+  if (decSiCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-decsi';
+    chip.dataset.key = 'decsi';
+    chip.innerHTML = `<span class="dot"></span>DECISIÓN SI <span class="n">${decSiCount}</span>`;
+    chip.addEventListener('click', () => {
+      selDecSi = !selDecSi;
+      chip.classList.toggle('active', selDecSi);
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // DECISIÓN VER
+  if (decVerCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-decver';
+    chip.dataset.key = 'decver';
+    chip.innerHTML = `<span class="dot"></span>POR REVISAR <span class="n">${decVerCount}</span>`;
+    chip.addEventListener('click', () => {
+      selDecVer = !selDecVer;
+      chip.classList.toggle('active', selDecVer);
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // Chips por DEMANDANTE
+  const demandantes = {};
+  allRemates.forEach(r => {
+    const d = (r.demandante || '').trim();
+    if (d && d.toUpperCase() !== 'N/A') {
+      demandantes[d] = (demandantes[d] || 0) + 1;
+    }
+  });
+
+  const sorted = Object.entries(demandantes).sort((a,b) => b[1] - a[1]);
+  sorted.forEach(([d, n]) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.demandante = d;
+    chip.innerHTML = `<span class="dot"></span>${escapeHtml(d)} <span class="n">${n}</span>`;
+    chip.addEventListener('click', () => {
+      if (selDemandantes.has(d)) {
+        selDemandantes.delete(d);
+        chip.classList.remove('active');
+      } else {
+        selDemandantes.add(d);
+        chip.classList.add('active');
+      }
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  });
+}
+
+// ── TRIBUNAL BAR ──
+function buildTribunalBar() {
+  const bar = document.getElementById('abogadoBar');
+  bar.innerHTML = '';
+  const tribunales = {};
+  allRemates.forEach(r => {
+    const t = (r.tribunal || '').trim();
+    if (t && t.toUpperCase() !== 'N/A') {
+      tribunales[t] = (tribunales[t] || 0) + 1;
+    }
+  });
+
+  // Btn "Todos"
+  const allBtn = document.createElement('button');
+  allBtn.className = 'abog-btn active';
+  allBtn.dataset.key = 'all';
+  allBtn.innerHTML = `Todos los tribunales <span class="n">${allRemates.length}</span>`;
+  allBtn.addEventListener('click', () => { selTribunal = null; syncTribunalBtns(); applyFilters(); });
+  bar.appendChild(allBtn);
+
+  Object.entries(tribunales).sort((a,b) => b[1]-a[1]).forEach(([t, n]) => {
+    const btn = document.createElement('button');
+    btn.className = 'abog-btn';
+    btn.dataset.tribunal = t;
+    btn.innerHTML = `${escapeHtml(t)} <span class="n">${n}</span>`;
+    btn.addEventListener('click', () => {
+      selTribunal = selTribunal === t ? null : t;
+      syncTribunalBtns();
+      applyFilters();
+    });
+    bar.appendChild(btn);
+  });
+}
+
+function syncTribunalBtns() {
+  document.querySelectorAll('#abogadoBar .abog-btn').forEach(btn => {
+    const isAll = btn.dataset.key === 'all';
+    btn.classList.toggle('active', isAll ? !selTribunal : btn.dataset.tribunal === selTribunal);
+  });
+}
+
+// ── FILTROS ──
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  const filtered = allRemates.filter(r => {
+    const txt = [r.inmueble, r.demandante, r.juicio, r.tribunal, r.obs, r.consig, r.resultado].join(' ').toLowerCase();
+    if (q && !txt.includes(q)) return false;
+
+    if (selProx) {
+      const d = diasDesde(r._fecha);
+      if (d === null || d < 0) return false;
+    }
+    if (selPasado) {
+      const d = diasDesde(r._fecha);
+      if (d === null || d >= 0) return false;
+    }
+    if (selZoom && (r.zoom||'').toUpperCase().trim() !== 'SI') return false;
+    if (selDecSi && (r.decision||'').toUpperCase().trim() !== 'SI') return false;
+    if (selDecVer) {
+      const dec = (r.decision||'').toUpperCase().trim();
+      if (!(dec === 'VER' || dec.includes('VER'))) return false;
+    }
+    if (selDemandantes.size > 0 && !selDemandantes.has(r.demandante)) return false;
+    if (selTribunal && r.tribunal !== selTribunal) return false;
+
+    return true;
+  });
+
+  // Ordenar: próximos primero (más cercanos arriba), luego pasados (más recientes arriba)
+  filtered.sort((a, b) => {
+    const dA = diasDesde(a._fecha);
+    const dB = diasDesde(b._fecha);
+    if (dA === null && dB === null) return 0;
+    if (dA === null) return 1;
+    if (dB === null) return -1;
+    // próximos (>=0): asc; pasados (<0): desc (más recientes primero)
+    const aIsFut = dA >= 0;
+    const bIsFut = dB >= 0;
+    if (aIsFut && !bIsFut) return -1;
+    if (!aIsFut && bIsFut) return 1;
+    if (aIsFut) return dA - dB;
+    return dB - dA;
+  });
+
+  renderCards(filtered);
+}
+
+function renderCards(list) {
+  const main = document.getElementById('mainContent');
+  const info = document.getElementById('resultsInfo');
+  info.textContent = `${list.length} remate${list.length===1?'':'s'}`;
+
+  if (list.length === 0) {
+    main.innerHTML = `<div class="state-box"><div class="icon">🔍</div><h3>Sin resultados</h3><p>Ajusta los filtros o la búsqueda</p></div>`;
+    return;
+  }
+
+  main.innerHTML = list.map(r => {
+    const dias = diasDesde(r._fecha);
+    let badgeHtml = '';
+    let stripeColor = 'var(--muted)';
+    if (dias !== null) {
+      if (dias === 0) {
+        badgeHtml = `<span class="sbadge" style="color:#fff;background:#ef4444">HOY</span>`;
+        stripeColor = '#ef4444';
+      } else if (dias > 0 && dias <= 7) {
+        badgeHtml = `<span class="sbadge" style="color:#0b1220;background:#fbbf24">EN ${dias}D</span>`;
+        stripeColor = '#fbbf24';
+      } else if (dias > 7) {
+        badgeHtml = `<span class="sbadge" style="color:#fff;background:#10b981">${dias}D</span>`;
+        stripeColor = '#10b981';
+      } else {
+        badgeHtml = `<span class="sbadge" style="color:#fff;background:#64748b">PASÓ</span>`;
+        stripeColor = '#64748b';
+      }
+    }
+
+    const tags = [];
+    if ((r.zoom||'').toUpperCase().trim() === 'SI') tags.push('<span class="tag zoom">📹 ZOOM</span>');
+    const dec = (r.decision||'').toUpperCase().trim();
+    if (dec === 'SI') tags.push('<span class="tag dec-si">✓ DECISIÓN SI</span>');
+    else if (dec === 'NO') tags.push('<span class="tag">✗ NO</span>');
+    else if (dec.includes('VER')) tags.push('<span class="tag dec-ver">⚠ POR VER</span>');
+
+    if (r.demandante) tags.push(`<span class="tag hl">${escapeHtml(r.demandante)}</span>`);
+
+    return `
+      <div class="card" style="--sc:${stripeColor}" data-id="${r.id}" onclick="openDetail(${r.id})">
+        <div class="card-top">
+          <div class="card-name">${escapeHtml(r.inmueble || '(sin inmueble)')}</div>
+          ${badgeHtml}
+        </div>
+        <div class="card-sub">${escapeHtml(r.juicio||'')}${r.tribunal?' · '+escapeHtml(r.tribunal):''}</div>
+        ${tags.length ? `<div class="card-tags">${tags.join('')}</div>` : ''}
+        <div class="card-foot">
+          <span class="cfecha">📅 ${formatFechaCorta(r._fecha)} ${formatHora(r.hora)}</span>
+          <span class="cmonto">${formatMonto(r.minimo)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── DETAIL MODAL ──
+function openDetail(id) {
+  const r = allRemates.find(x => x.id === id);
+  if (!r) return;
+
+  const fila = (label, val, cls='') => val ? `<div class="di"><div class="di-label">${label}</div><div class="di-val ${cls}">${escapeHtml(val)}</div></div>` : '';
+  const filaFull = (label, val, cls='') => val ? `<div class="di full"><div class="di-label">${label}</div><div class="di-val ${cls}">${escapeHtml(val)}</div></div>` : '';
+
+  let actions = '';
+  if (isUrl(r.ubicacion)) {
+    actions += `<a class="action-btn primary" href="${escapeHtml(r.ubicacion)}" target="_blank" rel="noopener">📍 Ver mapa</a>`;
+  }
+  if (isUrl(r.docs)) {
+    actions += `<a class="action-btn" href="${escapeHtml(r.docs)}" target="_blank" rel="noopener">📄 Documentos</a>`;
+  }
+
+  const html = `
+    <h2 class="sheet-title">${escapeHtml(r.inmueble || '(sin inmueble)')}</h2>
+    <p class="sheet-sub">${escapeHtml(r.juicio||'')}${r.tribunal?' · '+escapeHtml(r.tribunal):''}</p>
+
+    ${actions ? `<div class="actions-row">${actions}</div>` : ''}
+
+    <div class="sec-label">Remate</div>
+    <div class="dgrid">
+      ${fila('Fecha', formatFecha(r._fecha))}
+      ${fila('Hora', formatHora(r.hora))}
+      ${fila('Publicación', formatFecha(r.fechaPub))}
+      ${fila('Modalidad', (r.zoom||'').toUpperCase()==='SI' ? 'Zoom' : 'Presencial')}
+      ${fila('Mínimo', formatMonto(r.minimo), 'mo')}
+      ${fila('Demandante', r.demandante, 'ac')}
+    </div>
+
+    <div class="sec-label">Inmueble</div>
+    <div class="dgrid">
+      ${fila('Precio compra', formatMonto(r.pcompra))}
+      ${fila('Año compra', r.acompra)}
+      ${fila('Superficie', r.superficie)}
+      ${fila('Avalúo fiscal', formatMonto(r.avaluo))}
+      ${fila('Deuda contrib.', r.contrib)}
+    </div>
+
+    <div class="sec-label">Causa</div>
+    <div class="dgrid">
+      ${fila('Rol', r.juicio, 'ac')}
+      ${fila('Tribunal', r.tribunal)}
+      ${filaFull('Forma consignación', r.consig)}
+      ${filaFull('Observaciones', r.obs)}
+    </div>
+
+    <div class="sec-label">Resultado</div>
+    <div class="dgrid">
+      ${fila('Decisión', r.decision)}
+      ${fila('Adjudicación', formatMonto(r.madj), 'mo')}
+      ${fila('Resultado', r.resultado)}
+      ${fila('S3', r.s3)}
+    </div>
+  `;
+
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('btnCloseDetail').addEventListener('click', () => closeOverlay('detailOverlay'));
+document.getElementById('detailOverlay').addEventListener('click', e => { if (e.target.id === 'detailOverlay') closeOverlay('detailOverlay'); });
+
+document.getElementById('btnReload').addEventListener('click', loadData);
+
+document.getElementById('btnConfig').addEventListener('click', () => {
+  document.getElementById('hasHeader').value = config.hasHeader || '1';
+  Object.keys(DEFAULT_CFG).filter(k => k.startsWith('col_')).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = config[k] || DEFAULT_CFG[k];
+  });
+  document.getElementById('configOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+});
+
+document.getElementById('btnCloseConfig').addEventListener('click', () => closeOverlay('configOverlay'));
+
+document.getElementById('btnSaveConfig').addEventListener('click', () => {
+  const newCfg = { hasHeader: document.getElementById('hasHeader').value };
+  Object.keys(DEFAULT_CFG).filter(k => k.startsWith('col_')).forEach(k => {
+    const el = document.getElementById(k);
+    newCfg[k] = (el && el.value) ? el.value : DEFAULT_CFG[k];
+  });
+  config = newCfg;
+  localStorage.setItem('remates_cfg', JSON.stringify(config));
+  closeOverlay('configOverlay');
+  loadData();
+});
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+function showLoading() {
+  document.getElementById('mainContent').innerHTML = `<div class="state-box"><div class="spinner"></div><h3>Cargando remates…</h3><p>Conectando con Google Sheets</p></div>`;
+  document.getElementById('resultsInfo').textContent = '';
+}
+
+function showError(msg) {
+  document.getElementById('mainContent').innerHTML = `<div class="state-box"><div class="icon">⚠️</div><h3>Error al cargar</h3><p>${escapeHtml(msg)}</p><p style="margin-top:14px;font-size:11px">Verifica que la planilla esté compartida con "Cualquiera con el enlace puede ver"</p></div>`;
+  document.getElementById('resultsInfo').textContent = '';
+}
+
+// Service worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
