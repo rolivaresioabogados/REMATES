@@ -76,6 +76,8 @@
 
     .chip.c-prox { color: #10b981; border-color: rgba(16,185,129,0.4); }
     .chip.c-prox.active { background: #10b981; border-color: #10b981; color: #fff; }
+    .chip.c-proxremate { color: #fff; background: linear-gradient(135deg, #f97316, #ea580c); border-color: #f97316; box-shadow: 0 0 12px rgba(249,115,22,0.4); }
+    .chip.c-proxremate.active { background: #fbbf24; border-color: #fbbf24; color: #0b1220; box-shadow: 0 0 18px rgba(251,191,36,0.6); }
     .chip.c-pasado { color: #64748b; border-color: rgba(100,116,139,0.4); }
     .chip.c-pasado.active { background: #64748b; border-color: #64748b; color: #fff; }
     .chip.c-zoom { color: #3b82f6; border-color: rgba(59,130,246,0.4); }
@@ -113,7 +115,9 @@
     main { flex: 1; padding: 14px 14px calc(16px + var(--safe-bottom)); overflow-y: auto; }
 
     /* CARDS */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 15px; margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden; transition: opacity 0.15s; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 15px; margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden; transition: opacity 0.15s, box-shadow 0.2s, border-color 0.2s; }
+    .card.dec-si { border-color: #10b981; box-shadow: 0 0 0 1px #10b981, 0 0 16px rgba(16,185,129,0.45); }
+    .card.dec-no { border-color: #ef4444; box-shadow: 0 0 0 1px #ef4444, 0 0 16px rgba(239,68,68,0.45); }
     .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sc, var(--muted)); }
     .card:active { opacity: 0.75; }
     .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
@@ -163,6 +167,19 @@
     .di-val.ac { color: var(--accent); font-family: var(--mono); }
     .di-val.mo { color: var(--accent2); font-family: var(--mono); font-size: 16px; font-weight: 700; }
     .di-val.mu { color: var(--muted); font-size: 12px; }
+
+    /* DATOS TRIBUNAL box */
+    .trib-box { margin-top: 18px; background: linear-gradient(135deg, rgba(249,115,22,0.10), rgba(249,115,22,0.03)); border: 1.5px solid rgba(249,115,22,0.5); border-radius: 14px; padding: 14px; box-shadow: 0 0 14px rgba(249,115,22,0.15); }
+    .trib-box-title { font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px; }
+    .trib-box-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+    .trib-box-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .trib-item { background: rgba(11,18,32,0.5); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+    .trib-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .trib-val { font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--mono); word-break: break-all; }
+    .trib-val.cuenta { color: var(--accent2); font-size: 16px; }
+    .trib-copy { width: 100%; margin-top: 10px; background: var(--accent); border: none; color: #0b1220; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; }
+    .trib-copy:active { opacity: 0.7; }
+    .trib-copy.copied { background: #10b981; color: #fff; }
 
     /* ACTION BUTTONS in modal */
     .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -254,6 +271,7 @@
 
 <script>
 const SHEET_ID = '1v4uEP4KTn7Iq7OvqRbrWtHr4BwgS-j3s';
+const SHEET_DATOS_TRIB = 'DATOS TRIBUNALES Y REMATES';
 const DEFAULT_CFG = {
   hasHeader:'1',
   col_fecha:'A', col_hora:'B', col_fechapub:'C', col_zoom:'D',
@@ -265,8 +283,10 @@ const DEFAULT_CFG = {
 };
 
 let allRemates = [];
+let datosTribunales = {}; // { "1 TEMUCO": { rut: "...", cuenta: "..." }, ... }
 let selProx = false;
 let selPasado = false;
+let selProxRemate = false;
 let selDecSi = false;
 let selDecVer = false;
 let selFecha = null;
@@ -295,15 +315,29 @@ function excelSerialToDate(n) {
 }
 
 function parseFechaCell(v) {
-  if (!v) return null;
+  if (v === null || v === undefined) return null;
+  // Si ya es Date
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   const s = String(v).trim();
   if (!s) return null;
-  // intento serial
+  // Formato gviz: "Date(2026,3,15,11,0,0)" — meses 0-indexados
+  const gvizMatch = s.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+  if (gvizMatch) {
+    const y = parseInt(gvizMatch[1]);
+    const m = parseInt(gvizMatch[2]);
+    const d = parseInt(gvizMatch[3]);
+    const h = gvizMatch[4] ? parseInt(gvizMatch[4]) : 0;
+    const mi = gvizMatch[5] ? parseInt(gvizMatch[5]) : 0;
+    const se = gvizMatch[6] ? parseInt(gvizMatch[6]) : 0;
+    const dt = new Date(y, m, d, h, mi, se);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  // Excel serial
   if (/^\d+(\.\d+)?$/.test(s)) {
     const d = excelSerialToDate(s);
     if (d) return d;
   }
-  // intento ISO o formato directo
+  // ISO o formato directo (último recurso)
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -311,14 +345,14 @@ function parseFechaCell(v) {
 function formatFecha(v) {
   if (!v) return '';
   const d = v instanceof Date ? v : parseFechaCell(v);
-  if (!d) return String(v);
+  if (!d) return '';
   return d.toLocaleDateString('es-CL', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
 
 function formatFechaCorta(v) {
   if (!v) return '';
   const d = v instanceof Date ? v : parseFechaCell(v);
-  if (!d) return String(v);
+  if (!d) return '';
   const dias = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
   return `${dias[d.getDay()]} ${d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
 }
@@ -326,7 +360,7 @@ function formatFechaCorta(v) {
 function formatFechaGrande(v) {
   if (!v) return '';
   const d = v instanceof Date ? v : parseFechaCell(v);
-  if (!d) return String(v);
+  if (!d) return '';
   const dias = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;
@@ -436,8 +470,11 @@ async function loadData() {
     // Pre-calcular fecha como Date
     allRemates.forEach(r => { r._fecha = parseFechaCell(r.fecha); });
 
+    // Cargar datos de tribunales en paralelo (no bloquea si falla)
+    loadDatosTribunales().catch(()=>{});
+
     // Reset filtros
-    selProx = false; selPasado = false;
+    selProx = false; selPasado = false; selProxRemate = false;
     selDecSi = false; selDecVer = false; selFecha = null;
 
     buildEstadoBar();
@@ -445,6 +482,38 @@ async function loadData() {
     applyFilters();
   } catch (e) {
     showError(e.message);
+  }
+}
+
+// ── LOAD DATOS TRIBUNALES ──
+async function loadDatosTribunales() {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const text = await res.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+    if (!match) return;
+    const json = JSON.parse(match[1]);
+    const rows = json.table.rows || [];
+
+    const dict = {};
+    rows.forEach(row => {
+      if (!row.c) return;
+      // B = índice 1 (tribunal), C = índice 2 (rut), D = índice 3 (cuenta)
+      const cellTrib = row.c[1];
+      const cellRut = row.c[2];
+      const cellCta = row.c[3];
+      const trib = cellTrib && cellTrib.v != null ? String(cellTrib.f || cellTrib.v).trim() : '';
+      const rut = cellRut && cellRut.v != null ? String(cellRut.f || cellRut.v).trim() : '';
+      const cta = cellCta && cellCta.v != null ? String(cellCta.f || cellCta.v).trim() : '';
+      // Saltar encabezados o vacíos
+      if (!trib || trib.toUpperCase() === 'TRIBUNAL') return;
+      dict[trib.toUpperCase()] = { rut, cuenta: cta };
+    });
+    datosTribunales = dict;
+  } catch(e) {
+    // Silencioso: si falla, simplemente no se mostrará la caja
   }
 }
 
@@ -468,6 +537,49 @@ function buildEstadoBar() {
     const d = (r.decision||'').toUpperCase().trim();
     return d === 'VER' || d.includes('VER');
   }).length;
+
+  // Calcular fecha del próximo remate (la más cercana en el futuro, incluyendo hoy)
+  let proxRemateKey = null;
+  let proxRemateDias = null;
+  let proxRemateCount = 0;
+  allRemates.forEach(r => {
+    const d = diasDesde(r._fecha);
+    if (d === null || d < 0) return;
+    if (proxRemateDias === null || d < proxRemateDias) {
+      proxRemateDias = d;
+      const dt = r._fecha;
+      proxRemateKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    }
+  });
+  if (proxRemateKey) {
+    proxRemateCount = allRemates.filter(r => {
+      if (!r._fecha) return false;
+      const dt = r._fecha;
+      const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      return key === proxRemateKey;
+    }).length;
+  }
+
+  // PRÓX. REMATE (siempre primero, destacado)
+  if (proxRemateCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-proxremate';
+    chip.dataset.key = 'proxremate';
+    let etiqueta = 'PRÓX. REMATE';
+    if (proxRemateDias === 0) etiqueta = '🔥 HOY';
+    else if (proxRemateDias === 1) etiqueta = '⚡ MAÑANA';
+    else if (proxRemateDias <= 7) etiqueta = `⚡ EN ${proxRemateDias}D`;
+    chip.innerHTML = `<span class="dot"></span>${etiqueta} <span class="n">${proxRemateCount}</span>`;
+    chip.addEventListener('click', () => {
+      selProxRemate = !selProxRemate;
+      chip.classList.toggle('active', selProxRemate);
+      // Guardamos la key para usarla al filtrar
+      chip.dataset.fechaKey = proxRemateKey;
+      applyFilters();
+    });
+    chip.dataset.fechaKey = proxRemateKey;
+    bar.appendChild(chip);
+  }
 
   // PRÓXIMOS
   if (proxCount > 0) {
@@ -601,6 +713,14 @@ function applyFilters() {
     const txt = [r.inmueble, r.demandante, r.juicio, r.tribunal, r.obs, r.consig, r.resultado].join(' ').toLowerCase();
     if (q && !txt.includes(q)) return false;
 
+    if (selProxRemate) {
+      const chip = document.querySelector('.chip[data-key="proxremate"]');
+      const proxKey = chip ? chip.dataset.fechaKey : null;
+      if (!proxKey || !r._fecha) return false;
+      const dt = r._fecha;
+      const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      if (key !== proxKey) return false;
+    }
     if (selProx) {
       const d = diasDesde(r._fecha);
       if (d === null || d < 0) return false;
@@ -624,20 +744,14 @@ function applyFilters() {
     return true;
   });
 
-  // Ordenar: próximos primero (más cercanos arriba), luego pasados (más recientes arriba)
+  // Ordenar: fechas más futuras arriba, descendiendo hasta las más antiguas abajo. Sin fecha al final.
   filtered.sort((a, b) => {
-    const dA = diasDesde(a._fecha);
-    const dB = diasDesde(b._fecha);
-    if (dA === null && dB === null) return 0;
-    if (dA === null) return 1;
-    if (dB === null) return -1;
-    // próximos (>=0): asc; pasados (<0): desc (más recientes primero)
-    const aIsFut = dA >= 0;
-    const bIsFut = dB >= 0;
-    if (aIsFut && !bIsFut) return -1;
-    if (!aIsFut && bIsFut) return 1;
-    if (aIsFut) return dA - dB;
-    return dB - dA;
+    const tA = a._fecha ? a._fecha.getTime() : null;
+    const tB = b._fecha ? b._fecha.getTime() : null;
+    if (tA === null && tB === null) return 0;
+    if (tA === null) return 1;
+    if (tB === null) return -1;
+    return tB - tA;
   });
 
   renderCards(filtered);
@@ -673,14 +787,14 @@ function renderCards(list) {
       }
     }
 
+    const dec = (r.decision||'').toUpperCase().trim();
+    const cardClass = dec === 'SI' ? 'card dec-si' : (dec === 'NO' ? 'card dec-no' : 'card');
+
     const tags = [];
     if ((r.zoom||'').toUpperCase().trim() === 'SI') tags.push('<span class="tag zoom">📹 ZOOM</span>');
-    const dec = (r.decision||'').toUpperCase().trim();
     if (dec === 'SI') tags.push('<span class="tag dec-si">✓ DECISIÓN SI</span>');
     else if (dec === 'NO') tags.push('<span class="tag">✗ NO</span>');
     else if (dec.includes('VER')) tags.push('<span class="tag dec-ver">⚠ POR VER</span>');
-
-    if (r.demandante) tags.push(`<span class="tag hl">${escapeHtml(r.demandante)}</span>`);
 
     const fechaGrande = r._fecha ? formatFechaGrande(r._fecha) : '(sin fecha)';
     const horaTxt = formatHora(r.hora);
@@ -690,7 +804,7 @@ function renderCards(list) {
       : '';
 
     return `
-      <div class="card" style="--sc:${stripeColor}" data-id="${r.id}" onclick="openDetail(${r.id})">
+      <div class="${cardClass}" style="--sc:${stripeColor}" data-id="${r.id}" onclick="openDetail(${r.id})">
         <div class="card-top">
           <div class="card-fecha-big">${fechaGrande}${horaTxt ? ` <span class="card-hora">${horaTxt}</span>` : ''}</div>
           ${badgeHtml}
@@ -756,6 +870,23 @@ function openDetail(id) {
       ${filaFull('Observaciones', r.obs)}
     </div>
 
+    ${(() => {
+      const tribKey = (r.tribunal || '').trim().toUpperCase();
+      const dt = datosTribunales[tribKey];
+      if (!dt || (!dt.rut && !dt.cuenta)) return '';
+      return `
+        <div class="trib-box">
+          <div class="trib-box-title">🏛 Datos del tribunal</div>
+          <div class="trib-box-name">${escapeHtml(r.tribunal)}</div>
+          <div class="trib-box-grid">
+            ${dt.rut ? `<div class="trib-item"><div class="trib-label">RUT</div><div class="trib-val">${escapeHtml(dt.rut)}</div></div>` : ''}
+            ${dt.cuenta ? `<div class="trib-item"><div class="trib-label">Cuenta corriente</div><div class="trib-val cuenta">${escapeHtml(dt.cuenta)}</div></div>` : ''}
+          </div>
+          ${dt.cuenta ? `<button class="trib-copy" onclick="copyText('${escapeHtml(dt.cuenta).replace(/'/g, "\\'")}', this)">📋 Copiar cuenta</button>` : ''}
+        </div>
+      `;
+    })()}
+
     <div class="sec-label">Resultado</div>
     <div class="dgrid">
       ${fila('Decisión', r.decision)}
@@ -773,6 +904,40 @@ function openDetail(id) {
 function closeOverlay(id) {
   document.getElementById(id).classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function copyText(txt, btn) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => {
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      }
+    }).catch(() => fallbackCopy(txt, btn));
+  } else {
+    fallbackCopy(txt, btn);
+  }
+}
+
+function fallbackCopy(txt, btn) {
+  const ta = document.createElement('textarea');
+  ta.value = txt;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+    }
+  } catch(e) {}
+  document.body.removeChild(ta);
 }
 
 document.getElementById('btnCloseDetail').addEventListener('click', () => closeOverlay('detailOverlay'));
