@@ -116,8 +116,10 @@
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 15px; margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden; transition: opacity 0.15s; }
     .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sc, var(--muted)); }
     .card:active { opacity: 0.75; }
-    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; gap: 8px; }
-    .card-name { font-size: 14px; font-weight: 700; flex: 1; line-height: 1.35; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
+    .card-fecha-big { font-size: 15px; font-weight: 800; color: var(--accent); letter-spacing: 0.3px; line-height: 1.2; flex: 1; text-transform: uppercase; }
+    .card-hora { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--mono); margin-left: 4px; }
+    .card-name { font-size: 14px; font-weight: 700; line-height: 1.35; margin-bottom: 4px; }
     .sbadge { flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.5px; }
     .card-sub { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 9px; line-height: 1.5; }
     .card-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -133,6 +135,8 @@
     .card-foot { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .cmonto { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--accent2); }
     .cfecha { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+    .card-maps { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); color: var(--accent); text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .card-maps:active { opacity: 0.7; }
 
     /* STATES */
     .state-box { text-align: center; padding: 60px 20px; color: var(--muted); }
@@ -182,7 +186,7 @@
   <div class="header-top">
     <div class="logo">
       <div class="logo-icon">🔨</div>
-      <div class="logo-text">REMATES<br><span>seguimiento</span></div>
+      <div class="logo-text" style="font-size:18px">REMATES</div>
     </div>
     <div class="header-actions">
       <button class="btn-icon" id="btnReload" title="Recargar">↻</button>
@@ -261,13 +265,11 @@ const DEFAULT_CFG = {
 };
 
 let allRemates = [];
-let selDemandantes = new Set();
 let selProx = false;
 let selPasado = false;
-let selZoom = false;
 let selDecSi = false;
 let selDecVer = false;
-let selTribunal = null;
+let selFecha = null;
 
 let config = Object.assign({}, DEFAULT_CFG);
 const savedCfg = localStorage.getItem('remates_cfg');
@@ -319,6 +321,15 @@ function formatFechaCorta(v) {
   if (!d) return String(v);
   const dias = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
   return `${dias[d.getDay()]} ${d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
+}
+
+function formatFechaGrande(v) {
+  if (!v) return '';
+  const d = v instanceof Date ? v : parseFechaCell(v);
+  if (!d) return String(v);
+  const dias = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;
 }
 
 function formatHora(v) {
@@ -426,12 +437,11 @@ async function loadData() {
     allRemates.forEach(r => { r._fecha = parseFechaCell(r.fecha); });
 
     // Reset filtros
-    selDemandantes.clear();
-    selProx = false; selPasado = false; selZoom = false;
-    selDecSi = false; selDecVer = false; selTribunal = null;
+    selProx = false; selPasado = false;
+    selDecSi = false; selDecVer = false; selFecha = null;
 
     buildEstadoBar();
-    buildTribunalBar();
+    buildFechasFuturasBar();
     applyFilters();
   } catch (e) {
     showError(e.message);
@@ -452,8 +462,6 @@ function buildEstadoBar() {
     const d = diasDesde(r._fecha);
     return d !== null && d < 0;
   }).length;
-
-  const zoomCount = allRemates.filter(r => (r.zoom||'').toUpperCase().trim() === 'SI').length;
 
   const decSiCount = allRemates.filter(r => (r.decision||'').toUpperCase().trim() === 'SI').length;
   const decVerCount = allRemates.filter(r => {
@@ -495,20 +503,6 @@ function buildEstadoBar() {
     bar.appendChild(chip);
   }
 
-  // ZOOM
-  if (zoomCount > 0) {
-    const chip = document.createElement('div');
-    chip.className = 'chip c-zoom';
-    chip.dataset.key = 'zoom';
-    chip.innerHTML = `<span class="dot"></span>ZOOM <span class="n">${zoomCount}</span>`;
-    chip.addEventListener('click', () => {
-      selZoom = !selZoom;
-      chip.classList.toggle('active', selZoom);
-      applyFilters();
-    });
-    bar.appendChild(chip);
-  }
-
   // DECISIÓN SI
   if (decSiCount > 0) {
     const chip = document.createElement('div');
@@ -536,74 +530,66 @@ function buildEstadoBar() {
     });
     bar.appendChild(chip);
   }
-
-  // Chips por DEMANDANTE
-  const demandantes = {};
-  allRemates.forEach(r => {
-    const d = (r.demandante || '').trim();
-    if (d && d.toUpperCase() !== 'N/A') {
-      demandantes[d] = (demandantes[d] || 0) + 1;
-    }
-  });
-
-  const sorted = Object.entries(demandantes).sort((a,b) => b[1] - a[1]);
-  sorted.forEach(([d, n]) => {
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-    chip.dataset.demandante = d;
-    chip.innerHTML = `<span class="dot"></span>${escapeHtml(d)} <span class="n">${n}</span>`;
-    chip.addEventListener('click', () => {
-      if (selDemandantes.has(d)) {
-        selDemandantes.delete(d);
-        chip.classList.remove('active');
-      } else {
-        selDemandantes.add(d);
-        chip.classList.add('active');
-      }
-      applyFilters();
-    });
-    bar.appendChild(chip);
-  });
 }
 
-// ── TRIBUNAL BAR ──
-function buildTribunalBar() {
+// ── FECHAS FUTURAS BAR ──
+function buildFechasFuturasBar() {
   const bar = document.getElementById('abogadoBar');
   bar.innerHTML = '';
-  const tribunales = {};
+
+  // Agrupar remates futuros (incluye HOY) por fecha
+  const grupos = {};
   allRemates.forEach(r => {
-    const t = (r.tribunal || '').trim();
-    if (t && t.toUpperCase() !== 'N/A') {
-      tribunales[t] = (tribunales[t] || 0) + 1;
-    }
+    const dias = diasDesde(r._fecha);
+    if (dias === null || dias < 0) return;
+    // clave = timestamp de día
+    const d = r._fecha;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!grupos[key]) grupos[key] = { fecha: d, count: 0, dias };
+    grupos[key].count++;
   });
 
-  // Btn "Todos"
+  // Ordenar por fecha ascendente
+  const ordenadas = Object.entries(grupos).sort((a,b) => a[0].localeCompare(b[0]));
+
+  if (ordenadas.length === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = '';
+
+  // Btn "Todas"
   const allBtn = document.createElement('button');
   allBtn.className = 'abog-btn active';
   allBtn.dataset.key = 'all';
-  allBtn.innerHTML = `Todos los tribunales <span class="n">${allRemates.length}</span>`;
-  allBtn.addEventListener('click', () => { selTribunal = null; syncTribunalBtns(); applyFilters(); });
+  const totalFut = ordenadas.reduce((s,[,g]) => s + g.count, 0);
+  allBtn.innerHTML = `Todas las fechas <span class="n">${totalFut}</span>`;
+  allBtn.addEventListener('click', () => { selFecha = null; syncFechaBtns(); applyFilters(); });
   bar.appendChild(allBtn);
 
-  Object.entries(tribunales).sort((a,b) => b[1]-a[1]).forEach(([t, n]) => {
+  ordenadas.forEach(([key, g]) => {
     const btn = document.createElement('button');
     btn.className = 'abog-btn';
-    btn.dataset.tribunal = t;
-    btn.innerHTML = `${escapeHtml(t)} <span class="n">${n}</span>`;
+    btn.dataset.fecha = key;
+    const dias = ['DOM','LUN','MAR','MIE','JUE','VIE','SAB'];
+    const fechaTxt = `${dias[g.fecha.getDay()]} ${g.fecha.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
+    let prefix = '';
+    if (g.dias === 0) prefix = '🔥 HOY · ';
+    else if (g.dias === 1) prefix = 'MAÑANA · ';
+    btn.innerHTML = `${prefix}${fechaTxt} <span class="n">${g.count}</span>`;
     btn.addEventListener('click', () => {
-      selTribunal = selTribunal === t ? null : t;
-      syncTribunalBtns();
+      selFecha = selFecha === key ? null : key;
+      syncFechaBtns();
       applyFilters();
     });
     bar.appendChild(btn);
   });
 }
 
-function syncTribunalBtns() {
+function syncFechaBtns() {
   document.querySelectorAll('#abogadoBar .abog-btn').forEach(btn => {
     const isAll = btn.dataset.key === 'all';
-    btn.classList.toggle('active', isAll ? !selTribunal : btn.dataset.tribunal === selTribunal);
+    btn.classList.toggle('active', isAll ? !selFecha : btn.dataset.fecha === selFecha);
   });
 }
 
@@ -623,14 +609,17 @@ function applyFilters() {
       const d = diasDesde(r._fecha);
       if (d === null || d >= 0) return false;
     }
-    if (selZoom && (r.zoom||'').toUpperCase().trim() !== 'SI') return false;
     if (selDecSi && (r.decision||'').toUpperCase().trim() !== 'SI') return false;
     if (selDecVer) {
       const dec = (r.decision||'').toUpperCase().trim();
       if (!(dec === 'VER' || dec.includes('VER'))) return false;
     }
-    if (selDemandantes.size > 0 && !selDemandantes.has(r.demandante)) return false;
-    if (selTribunal && r.tribunal !== selTribunal) return false;
+    if (selFecha) {
+      if (!r._fecha) return false;
+      const d = r._fecha;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      if (key !== selFecha) return false;
+    }
 
     return true;
   });
@@ -693,17 +682,25 @@ function renderCards(list) {
 
     if (r.demandante) tags.push(`<span class="tag hl">${escapeHtml(r.demandante)}</span>`);
 
+    const fechaGrande = r._fecha ? formatFechaGrande(r._fecha) : '(sin fecha)';
+    const horaTxt = formatHora(r.hora);
+
+    const mapsBtn = isUrl(r.ubicacion)
+      ? `<a class="card-maps" href="${escapeHtml(r.ubicacion)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Mapa</a>`
+      : '';
+
     return `
       <div class="card" style="--sc:${stripeColor}" data-id="${r.id}" onclick="openDetail(${r.id})">
         <div class="card-top">
-          <div class="card-name">${escapeHtml(r.inmueble || '(sin inmueble)')}</div>
+          <div class="card-fecha-big">${fechaGrande}${horaTxt ? ` <span class="card-hora">${horaTxt}</span>` : ''}</div>
           ${badgeHtml}
         </div>
+        <div class="card-name">${escapeHtml(r.inmueble || '(sin inmueble)')}</div>
         <div class="card-sub">${escapeHtml(r.juicio||'')}${r.tribunal?' · '+escapeHtml(r.tribunal):''}</div>
         ${tags.length ? `<div class="card-tags">${tags.join('')}</div>` : ''}
         <div class="card-foot">
-          <span class="cfecha">📅 ${formatFechaCorta(r._fecha)} ${formatHora(r.hora)}</span>
           <span class="cmonto">${formatMonto(r.minimo)}</span>
+          ${mapsBtn}
         </div>
       </div>
     `;
