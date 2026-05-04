@@ -200,6 +200,9 @@
     .trib-copy { width: 100%; margin-top: 10px; background: var(--accent); border: none; color: #0b1220; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; }
     .trib-copy:active { opacity: 0.7; }
     .trib-copy.copied { background: #10b981; color: #fff; }
+    .trib-box.trib-box-empty { background: rgba(100,116,139,0.05); border-color: rgba(100,116,139,0.3); border-style: dashed; box-shadow: none; }
+    .trib-box.trib-box-empty .trib-box-title { color: var(--muted); }
+    .trib-empty-msg { font-size: 12px; font-style: italic; color: var(--muted); padding: 8px 0 0; line-height: 1.4; }
 
     /* ACTION BUTTONS in modal */
     .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -454,8 +457,10 @@ function escapeHtml(s) {
 async function loadData() {
   showLoading();
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-    const res = await fetch(url);
+    // Agregamos timestamp para evitar caché de Google y del navegador
+    const ts = Date.now();
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&_t=${ts}`;
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Error HTTP '+res.status);
     const text = await res.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
@@ -526,23 +531,31 @@ async function loadData() {
   }
 }
 
-// Normaliza nombre de tribunal: mayúsculas, sin espacios extra, sin la palabra CIVIL
+// Normaliza nombre de tribunal para hacer match flexible entre hojas:
+// - Mayúsculas, sin tildes, sin espacios extra
+// - Ignora palabras "CIVIL", "JLC", "JUZGADO", "DE", "LETRAS" que pueden variar
 function normTribunal(s) {
   if (!s) return '';
-  return String(s)
+  let t = String(s)
     .toUpperCase()
-    .replace(/\s+/g, ' ')
-    .replace(/\bCIVIL\b/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+    .replace(/[^A-Z0-9 ]/g, ' ') // quita puntuación
     .replace(/\s+/g, ' ')
     .trim();
+  // Quitar palabras opcionales que pueden o no estar
+  t = t.replace(/\b(JUZGADO|JUZGADOS|CIVIL|CIVILES|JLC|DE|LETRAS|EN|LO)\b/g, '');
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
 }
 
 // ── LOAD DATOS TRIBUNALES ──
 async function loadDatosTribunales() {
   try {
     // Pedimos explícitamente las columnas B, C, D y desde la fila 3
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}&range=B3:D200`;
-    const res = await fetch(url);
+    // Pedimos explícitamente las columnas B, C, D y desde la fila 3
+    const ts = Date.now();
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}&range=B3:D200&headers=0&_t=${ts}`;
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) { console.warn('[tribunales] HTTP', res.status); return; }
     const text = await res.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
@@ -939,18 +952,29 @@ function openDetail(id) {
     </div>
 
     ${(() => {
-      const tribKey = normTribunal(r.tribunal);
+      const tribName = (r.tribunal || '').trim();
+      if (!tribName || tribName.toUpperCase() === 'N/A') return '';
+      const tribKey = normTribunal(tribName);
       const dt = datosTribunales[tribKey];
-      if (!dt || (!dt.rut && !dt.cuenta)) return '';
-      return `
-        <div class="trib-box">
-          <div class="trib-box-title">🏛 Datos del tribunal</div>
-          <div class="trib-box-name">${escapeHtml(r.tribunal)}</div>
-          <div class="trib-box-grid">
-            ${dt.rut ? `<div class="trib-item"><div class="trib-label">RUT</div><div class="trib-val">${escapeHtml(dt.rut)}</div></div>` : ''}
-            ${dt.cuenta ? `<div class="trib-item"><div class="trib-label">Cuenta corriente</div><div class="trib-val cuenta">${escapeHtml(dt.cuenta)}</div></div>` : ''}
+      if (dt && (dt.rut || dt.cuenta)) {
+        return `
+          <div class="trib-box">
+            <div class="trib-box-title">🏛 Datos del tribunal</div>
+            <div class="trib-box-name">${escapeHtml(tribName)}</div>
+            <div class="trib-box-grid">
+              ${dt.rut ? `<div class="trib-item"><div class="trib-label">RUT</div><div class="trib-val">${escapeHtml(dt.rut)}</div></div>` : ''}
+              ${dt.cuenta ? `<div class="trib-item"><div class="trib-label">Cuenta corriente</div><div class="trib-val cuenta">${escapeHtml(dt.cuenta)}</div></div>` : ''}
+            </div>
+            ${dt.cuenta ? `<button class="trib-copy" onclick="copyText('${escapeHtml(dt.cuenta).replace(/'/g, "\\'")}', this)">📋 Copiar cuenta</button>` : ''}
           </div>
-          ${dt.cuenta ? `<button class="trib-copy" onclick="copyText('${escapeHtml(dt.cuenta).replace(/'/g, "\\'")}', this)">📋 Copiar cuenta</button>` : ''}
+        `;
+      }
+      // No hay datos en la hoja DATOS TRIBUNALES para este tribunal
+      return `
+        <div class="trib-box trib-box-empty">
+          <div class="trib-box-title">🏛 Datos del tribunal</div>
+          <div class="trib-box-name">${escapeHtml(tribName)}</div>
+          <div class="trib-empty-msg">Sin RUT/cuenta registrada en la hoja "DATOS TRIBUNALES Y REMATES"</div>
         </div>
       `;
     })()}

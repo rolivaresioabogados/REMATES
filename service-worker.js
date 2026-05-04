@@ -1,7 +1,7 @@
 // Service Worker para PWA Remates - con auto-update
 // La versión se incrementa con cada cambio importante. Cambiar este número
 // fuerza la actualización de todos los clientes.
-const VERSION = 'v9';
+const VERSION = 'v11';
 const CACHE_NAME = 'remates-' + VERSION;
 
 // Solo cachear assets estáticos que cambian poco
@@ -47,7 +47,18 @@ self.addEventListener('fetch', (event) => {
                  url.pathname.endsWith('/') ||
                  url.pathname.endsWith('/index.html');
 
-  if (isGviz || isHTML) {
+  if (isGviz) {
+    // Datos de Google Sheets: SIEMPRE network-only (no cache, no fallback)
+    // Si cae la red, mejor mostrar error que datos viejos.
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() =>
+        new Response('{"error":"sin_conexion"}', { status: 503, headers: {'Content-Type':'application/json'} })
+      )
+    );
+    return;
+  }
+
+  if (isHTML) {
     // NETWORK-FIRST: siempre intenta traer fresh, caché solo como fallback offline
     event.respondWith(
       fetch(request)
