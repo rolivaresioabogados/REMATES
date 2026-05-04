@@ -1094,35 +1094,17 @@ function showError(msg) {
   document.getElementById('resultsInfo').textContent = '';
 }
 
-// Service worker registration con auto-update
+// Desregistrar cualquier service worker viejo y NO registrar uno nuevo.
+// Después de varios problemas de caché agresivo, decidimos no usar SW.
+// La app sigue funcionando online perfectamente; solo perdemos el modo offline.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').then((reg) => {
-      // Buscar updates inmediatamente y luego cada 60 segundos
-      reg.update().catch(()=>{});
-      setInterval(() => reg.update().catch(()=>{}), 60000);
-
-      // Cuando se detecta un service worker nuevo en espera, activarlo
-      reg.addEventListener('updatefound', () => {
-        const nuevo = reg.installing;
-        if (!nuevo) return;
-        nuevo.addEventListener('statechange', () => {
-          if (nuevo.state === 'installed' && navigator.serviceWorker.controller) {
-            // Hay una versión nueva instalada y un SW activo: forzar takeover
-            nuevo.postMessage({ type: 'SKIP_WAITING' });
-          }
-        });
-      });
-    }).catch(()=>{});
-
-    // Cuando el SW cambia de control (después de skipWaiting), recargar la página
-    let recargando = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (recargando) return;
-      recargando = true;
-      window.location.reload();
-    });
-  });
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => r.unregister().catch(() => {}));
+  }).catch(() => {});
+  // Borrar todos los cachés también
+  if (window.caches && caches.keys) {
+    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k).catch(() => {}))).catch(() => {});
+  }
 }
 
 loadData();
