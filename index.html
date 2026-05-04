@@ -86,6 +86,8 @@
     .chip.c-decsi.active { background: #10b981; border-color: #10b981; color: #fff; }
     .chip.c-decver { color: #fbbf24; border-color: rgba(251,191,36,0.4); }
     .chip.c-decver.active { background: #fbbf24; border-color: #fbbf24; color: #0b1220; }
+    .chip.c-adjs3 { color: #a78bfa; border-color: rgba(167,139,250,0.4); }
+    .chip.c-adjs3.active { background: #a78bfa; border-color: #a78bfa; color: #0b1220; }
 
     /* DEMANDANTE BTNS (con contador dinámico) */
     .abog-btn {
@@ -137,6 +139,24 @@
     .cg-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
     .cg-val { font-size: 12px; color: var(--text); font-family: var(--mono); }
     .card-foot { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+    /* Cajas destacadas en el modal: Instrucción Adjudicación y Resultado */
+    .modal-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+    .modal-box { border-radius: 12px; padding: 14px; border: 1.5px solid; min-height: 90px; display: flex; flex-direction: column; }
+    .modal-box-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; line-height: 1.2; }
+    .modal-box-val { font-size: 15px; font-weight: 700; font-family: var(--mono); line-height: 1.3; word-break: break-word; flex: 1; display: flex; align-items: center; }
+    .modal-box-empty { font-size: 13px; font-style: italic; color: var(--muted); flex: 1; display: flex; align-items: center; opacity: 0.7; }
+    .modal-box-instr { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.08); }
+    .modal-box-instr .modal-box-label { color: #a78bfa; }
+    .modal-box-instr .modal-box-val { color: #c4b5fd; }
+    .modal-box-result { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.08); }
+    .modal-box-result .modal-box-label { color: #fbbf24; }
+    .modal-box-result .modal-box-val { color: #fde68a; }
+    .modal-box.is-empty { background: rgba(100,116,139,0.05); border-color: rgba(100,116,139,0.25); border-style: dashed; }
+    .modal-box.is-empty .modal-box-label { color: var(--muted); opacity: 0.7; }
+    @media (max-width: 480px) {
+      .modal-boxes { grid-template-columns: 1fr; }
+    }
     .cmonto { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--accent2); }
     .cfecha { font-size: 11px; color: var(--muted); font-family: var(--mono); }
     .card-maps { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); color: var(--accent); text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
@@ -289,6 +309,7 @@ let selPasado = false;
 let selProxRemate = false;
 let selDecSi = false;
 let selDecVer = false;
+let selAdjS3 = false;
 let selFecha = null;
 
 let config = Object.assign({}, DEFAULT_CFG);
@@ -495,7 +516,7 @@ async function loadData() {
 
     // Reset filtros
     selProx = false; selPasado = false; selProxRemate = false;
-    selDecSi = false; selDecVer = false; selFecha = null;
+    selDecSi = false; selDecVer = false; selAdjS3 = false; selFecha = null;
 
     buildEstadoBar();
     buildFechasFuturasBar();
@@ -638,31 +659,13 @@ function buildEstadoBar() {
     chip.innerHTML = `<span class="dot"></span>PRÓXIMOS <span class="n">${proxCount}</span>`;
     chip.addEventListener('click', () => {
       selProx = !selProx;
-      if (selProx) selPasado = false;
       chip.classList.toggle('active', selProx);
-      const pasadoChip = document.querySelector('.chip[data-key="pasado"]');
-      if (pasadoChip) pasadoChip.classList.remove('active');
       applyFilters();
     });
     bar.appendChild(chip);
   }
 
-  // PASADOS
-  if (pasadoCount > 0) {
-    const chip = document.createElement('div');
-    chip.className = 'chip c-pasado';
-    chip.dataset.key = 'pasado';
-    chip.innerHTML = `<span class="dot"></span>PASADOS <span class="n">${pasadoCount}</span>`;
-    chip.addEventListener('click', () => {
-      selPasado = !selPasado;
-      if (selPasado) selProx = false;
-      chip.classList.toggle('active', selPasado);
-      const proxChip = document.querySelector('.chip[data-key="prox"]');
-      if (proxChip) proxChip.classList.remove('active');
-      applyFilters();
-    });
-    bar.appendChild(chip);
-  }
+  // (chip PASADOS eliminado a pedido del usuario)
 
   // DECISIÓN SI
   if (decSiCount > 0) {
@@ -687,6 +690,21 @@ function buildEstadoBar() {
     chip.addEventListener('click', () => {
       selDecVer = !selDecVer;
       chip.classList.toggle('active', selDecVer);
+      applyFilters();
+    });
+    bar.appendChild(chip);
+  }
+
+  // ADJ S3 (columna V = SI)
+  const adjS3Count = allRemates.filter(r => (r.s3||'').toUpperCase().trim() === 'SI').length;
+  if (adjS3Count > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'chip c-adjs3';
+    chip.dataset.key = 'adjs3';
+    chip.innerHTML = `<span class="dot"></span>ADJ S3 <span class="n">${adjS3Count}</span>`;
+    chip.addEventListener('click', () => {
+      selAdjS3 = !selAdjS3;
+      chip.classList.toggle('active', selAdjS3);
       applyFilters();
     });
     bar.appendChild(chip);
@@ -783,6 +801,7 @@ function applyFilters() {
       const dec = (r.decision||'').toUpperCase().trim();
       if (!(dec === 'VER' || dec.includes('VER'))) return false;
     }
+    if (selAdjS3 && (r.s3||'').toUpperCase().trim() !== 'SI') return false;
     if (selFecha) {
       if (!r._fecha) return false;
       const d = r._fecha;
@@ -936,11 +955,32 @@ function openDetail(id) {
       `;
     })()}
 
-    <div class="sec-label">Resultado</div>
+    ${(() => {
+      const madjVal = r.madj && String(r.madj).trim();
+      const resVal = r.resultado && String(r.resultado).trim();
+      const madjHtml = madjVal
+        ? `<div class="modal-box-val">${escapeHtml(formatMonto(r.madj) || r.madj)}</div>`
+        : `<div class="modal-box-empty">Pendiente</div>`;
+      const resHtml = resVal
+        ? `<div class="modal-box-val">${escapeHtml(r.resultado)}</div>`
+        : `<div class="modal-box-empty">Pendiente</div>`;
+      return `
+        <div class="modal-boxes">
+          <div class="modal-box modal-box-instr ${madjVal ? '' : 'is-empty'}">
+            <div class="modal-box-label">📋 Instrucción adjudicación</div>
+            ${madjHtml}
+          </div>
+          <div class="modal-box modal-box-result ${resVal ? '' : 'is-empty'}">
+            <div class="modal-box-label">🏁 Resultado</div>
+            ${resHtml}
+          </div>
+        </div>
+      `;
+    })()}
+
+    <div class="sec-label">Otros datos</div>
     <div class="dgrid">
       ${fila('Decisión', r.decision)}
-      ${fila('Adjudicación', formatMonto(r.madj), 'mo')}
-      ${fila('Resultado', r.resultado)}
       ${fila('S3', r.s3)}
     </div>
   `;
