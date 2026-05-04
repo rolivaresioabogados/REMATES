@@ -483,9 +483,10 @@ function escapeHtml(s) {
 async function loadData() {
   showLoading();
   try {
-    // Agregamos timestamp + random para evitar cualquier caché
+    // Forzamos el rango A:V para garantizar que SIEMPRE vengan todas las columnas
+    // hasta S3 (V), incluso si Google decide recortar el rango automáticamente.
     const ts = Date.now() + '_' + Math.random().toString(36).slice(2);
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&_t=${ts}`;
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&range=A1:V500&_t=${ts}`;
     const res = await fetch(url, {
       cache: 'no-store',
       mode: 'cors',
