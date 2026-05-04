@@ -295,6 +295,32 @@
 <script>
 const SHEET_ID = '1v4uEP4KTn7Iq7OvqRbrWtHr4BwgS-j3s';
 const SHEET_DATOS_TRIB = 'DATOS TRIBUNALES Y REMATES';
+
+// ─────────────────────────────────────────────
+// LIMPIEZA AGRESIVA DE SERVICE WORKER VIEJO
+// Desde el inicio: si encontramos un SW activo, lo matamos, borramos todo
+// el caché, y recargamos la página SIN caché. Esto rompe el ciclo del SW viejo.
+// ─────────────────────────────────────────────
+(function killOldServiceWorker(){
+  if (!('serviceWorker' in navigator)) return;
+  // Si hay un controller activo, significa que un SW está interceptando
+  const hayControlador = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    if (regs.length === 0 && !hayControlador) return;
+    Promise.all(regs.map(r => r.unregister().catch(()=>{}))).then(() => {
+      if (window.caches && caches.keys) {
+        return caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k).catch(()=>{}))));
+      }
+    }).then(() => {
+      if (hayControlador && !sessionStorage.getItem('sw_killed_reload')) {
+        sessionStorage.setItem('sw_killed_reload', '1');
+        // Forzar reload sin caché
+        window.location.reload();
+      }
+    }).catch(()=>{});
+  }).catch(()=>{});
+})();
+
 const DEFAULT_CFG = {
   hasHeader:'1',
   col_fecha:'A', col_hora:'B', col_fechapub:'C', col_zoom:'D',
@@ -457,10 +483,15 @@ function escapeHtml(s) {
 async function loadData() {
   showLoading();
   try {
-    // Agregamos timestamp para evitar caché de Google y del navegador
-    const ts = Date.now();
+    // Agregamos timestamp + random para evitar cualquier caché
+    const ts = Date.now() + '_' + Math.random().toString(36).slice(2);
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&_t=${ts}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, {
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+    });
     if (!res.ok) throw new Error('Error HTTP '+res.status);
     const text = await res.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
@@ -553,9 +584,14 @@ async function loadDatosTribunales() {
   try {
     // Pedimos explícitamente las columnas B, C, D y desde la fila 3
     // Pedimos explícitamente las columnas B, C, D y desde la fila 3
-    const ts = Date.now();
+    const ts = Date.now() + '_' + Math.random().toString(36).slice(2);
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}&range=B3:D200&headers=0&_t=${ts}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, {
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+    });
     if (!res.ok) { console.warn('[tribunales] HTTP', res.status); return; }
     const text = await res.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
@@ -1094,18 +1130,7 @@ function showError(msg) {
   document.getElementById('resultsInfo').textContent = '';
 }
 
-// Desregistrar cualquier service worker viejo y NO registrar uno nuevo.
-// Después de varios problemas de caché agresivo, decidimos no usar SW.
-// La app sigue funcionando online perfectamente; solo perdemos el modo offline.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((regs) => {
-    regs.forEach((r) => r.unregister().catch(() => {}));
-  }).catch(() => {});
-  // Borrar todos los cachés también
-  if (window.caches && caches.keys) {
-    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k).catch(() => {}))).catch(() => {});
-  }
-}
+// (Limpieza de service worker movida al inicio del script)
 
 loadData();
 </script>
