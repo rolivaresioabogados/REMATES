@@ -505,6 +505,17 @@ async function loadData() {
   }
 }
 
+// Normaliza nombre de tribunal: mayúsculas, sin espacios extra, sin la palabra CIVIL
+function normTribunal(s) {
+  if (!s) return '';
+  return String(s)
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\bCIVIL\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ── LOAD DATOS TRIBUNALES ──
 async function loadDatosTribunales() {
   try {
@@ -537,8 +548,8 @@ async function loadDatosTribunales() {
         : '';
 
       if (!trib) return;
-      const key = trib.toUpperCase().replace(/\s+/g, ' ').trim();
-      if (key === 'TRIBUNAL') return; // saltar encabezado si vino incluido
+      const key = normTribunal(trib);
+      if (!key || key === 'TRIBUNAL') return;
       dict[key] = { rut, cuenta: cta, nombre: trib };
     });
     datosTribunales = dict;
@@ -902,7 +913,7 @@ function openDetail(id) {
     </div>
 
     ${(() => {
-      const tribKey = (r.tribunal || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      const tribKey = normTribunal(r.tribunal);
       const dt = datosTribunales[tribKey];
       if (!dt || (!dt.rut && !dt.cuenta)) return '';
       return `
