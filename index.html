@@ -508,7 +508,8 @@ async function loadData() {
 // ── LOAD DATOS TRIBUNALES ──
 async function loadDatosTribunales() {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}`;
+    // Pedimos explícitamente las columnas B, C, D y desde la fila 3
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_DATOS_TRIB)}&range=B3:D200`;
     const res = await fetch(url);
     if (!res.ok) { console.warn('[tribunales] HTTP', res.status); return; }
     const text = await res.text();
@@ -520,30 +521,24 @@ async function loadDatosTribunales() {
     const dict = {};
     rows.forEach(row => {
       if (!row.c) return;
-      // Buscar tribunal, rut y cuenta en cualquiera de las primeras 5 columnas
-      // (B=1, C=2, D=3 según la planilla; pero por si gviz cambia el offset)
-      let trib = '', rut = '', cta = '';
-      for (let i = 0; i < Math.min(row.c.length, 6); i++) {
-        const cell = row.c[i];
-        if (!cell || cell.v == null) continue;
-        const val = String(cell.f != null && cell.f !== '' ? cell.f : cell.v).trim();
-        if (!val) continue;
-        // Detectar tribunal: texto sin guión y mayoritariamente letras
-        if (!trib && /^[A-ZÑÁÉÍÓÚ0-9 ]+$/i.test(val) && val.length > 3 && val.length < 40 && !/^\d+$/.test(val)) {
-          trib = val;
-        }
-        // Detectar RUT: formato 12345678-9
-        else if (!rut && /^\d{7,9}-[\dkK]$/.test(val.replace(/\./g, ''))) {
-          rut = val;
-        }
-        // Detectar cuenta: número largo (8+ dígitos puros)
-        else if (!cta && /^\d{8,}$/.test(val.replace(/\D/g, ''))) {
-          cta = val.replace(/\D/g, '');
-        }
-      }
+      // Con range=B3:D, los índices son: 0=tribunal, 1=rut, 2=cuenta
+      const cellTrib = row.c[0];
+      const cellRut = row.c[1];
+      const cellCta = row.c[2];
+
+      const trib = cellTrib && cellTrib.v != null
+        ? String(cellTrib.f != null && cellTrib.f !== '' ? cellTrib.f : cellTrib.v).trim()
+        : '';
+      const rut = cellRut && cellRut.v != null
+        ? String(cellRut.f != null && cellRut.f !== '' ? cellRut.f : cellRut.v).trim()
+        : '';
+      const cta = cellCta && cellCta.v != null
+        ? String(cellCta.f != null && cellCta.f !== '' ? cellCta.f : cellCta.v).trim()
+        : '';
+
       if (!trib) return;
       const key = trib.toUpperCase().replace(/\s+/g, ' ').trim();
-      if (key === 'TRIBUNAL' || key.includes('CUENTA') || key.includes('RUT')) return;
+      if (key === 'TRIBUNAL') return; // saltar encabezado si vino incluido
       dict[key] = { rut, cuenta: cta, nombre: trib };
     });
     datosTribunales = dict;

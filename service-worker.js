@@ -1,7 +1,7 @@
 // Service Worker para PWA Remates - con auto-update
 // La versión se incrementa con cada cambio importante. Cambiar este número
 // fuerza la actualización de todos los clientes.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE_NAME = 'remates-' + VERSION;
 
 // Solo cachear assets estáticos que cambian poco
