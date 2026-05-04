@@ -528,6 +528,12 @@ async function loadDatosTribunales() {
     if (!match) { console.warn('[tribunales] formato inesperado'); return; }
     const json = JSON.parse(match[1]);
     const rows = json.table.rows || [];
+    const cols = json.table.cols || [];
+
+    // DEBUG: imprimir respuesta cruda para ver qué llega exactamente
+    console.log('[tribunales] columnas que llegaron:', cols.map(c => c.label || c.id));
+    console.log('[tribunales] primera fila completa:', rows[0]);
+    console.log('[tribunales] todas las filas:', rows.map(r => r.c ? r.c.map(c => c ? (c.f || c.v) : null) : []));
 
     const dict = {};
     rows.forEach(row => {
@@ -537,9 +543,10 @@ async function loadDatosTribunales() {
       const cellRut = row.c[1];
       const cellCta = row.c[2];
 
-      const trib = cellTrib && cellTrib.v != null
-        ? String(cellTrib.f != null && cellTrib.f !== '' ? cellTrib.f : cellTrib.v).trim()
-        : '';
+      // CRÍTICO: para el tribunal usamos SOLO cell.v (valor crudo).
+      // Si usáramos cell.f, podríamos estar trayendo el "valor mostrado" que a veces incluye
+      // texto adicional según el formato de la celda.
+      const trib = cellTrib && cellTrib.v != null ? String(cellTrib.v).trim() : '';
       const rut = cellRut && cellRut.v != null
         ? String(cellRut.f != null && cellRut.f !== '' ? cellRut.f : cellRut.v).trim()
         : '';
