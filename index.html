@@ -499,7 +499,10 @@ async function loadData() {
     if (!match) throw new Error('Formato inesperado de la planilla');
     const json = JSON.parse(match[1]);
     const rows = json.table.rows || [];
-    const start = config.hasHeader === '1' ? 1 : 0;
+    // Google gviz ya separa el encabezado automáticamente (lo pone en json.table.cols),
+    // así que NO debemos hacer slice extra. Si hicimos slice(1), nos saltamos la
+    // primera fila de datos por error.
+    const start = 0;
 
     function gcv(row, col) {
       const idx = ci(col);
