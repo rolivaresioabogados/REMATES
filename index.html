@@ -876,6 +876,109 @@ function applyFilters() {
   });
 
   renderCards(filtered);
+  updateCounters(q);
+}
+
+// ── ACTUALIZAR CONTADORES DE CHIPS ──
+// Para cada chip, cuenta cuántos remates quedarían si SOLO se aplicara ese chip
+// junto a los OTROS filtros activos (excluyendo el filtro del chip mismo).
+// Esto permite combinar filtros de forma útil.
+function updateCounters(q) {
+  q = (q || '').toLowerCase().trim();
+
+  // Helper: cuenta remates aplicando un set de filtros (igual lógica que applyFilters)
+  function countWith(opts) {
+    return allRemates.filter(r => {
+      const txt = [r.inmueble, r.demandante, r.juicio, r.tribunal, r.obs, r.consig, r.resultado].join(' ').toLowerCase();
+      if (q && !txt.includes(q)) return false;
+
+      if (opts.selProxRemate) {
+        const chip = document.querySelector('.chip[data-key="proxremate"]');
+        const proxKey = chip ? chip.dataset.fechaKey : null;
+        if (!proxKey || !r._fecha) return false;
+        const dt = r._fecha;
+        const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        if (key !== proxKey) return false;
+      }
+      if (opts.selProx) {
+        const d = diasDesde(r._fecha);
+        if (d === null || d < 0) return false;
+      }
+      if (opts.selDecSi && (r.decision||'').toUpperCase().trim() !== 'SI') return false;
+      if (opts.selDecVer) {
+        const dec = (r.decision||'').toUpperCase().trim();
+        if (!(dec === 'VER' || dec.includes('VER'))) return false;
+      }
+      if (opts.selAdjS3 && (r.s3||'').toUpperCase().trim() !== 'SI') return false;
+      if (opts.selFecha) {
+        if (!r._fecha) return false;
+        const d = r._fecha;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (key !== opts.selFecha) return false;
+      }
+
+      return true;
+    }).length;
+  }
+
+  // Estado actual de filtros
+  const filtrosActivos = {
+    selProxRemate, selProx, selDecSi, selDecVer, selAdjS3, selFecha
+  };
+
+  // Para cada chip, contar cuántos remates quedarían si ese chip se aplicara
+  // junto a los OTROS filtros activos (excluyendo el del chip mismo).
+  function countForChip(chipKey) {
+    const opts = { ...filtrosActivos };
+    // Encender el filtro del chip mismo (no toggle, sino forzar ON)
+    if (chipKey === 'proxremate') opts.selProxRemate = true;
+    else if (chipKey === 'prox') opts.selProx = true;
+    else if (chipKey === 'decsi') opts.selDecSi = true;
+    else if (chipKey === 'decver') opts.selDecVer = true;
+    else if (chipKey === 'adjs3') opts.selAdjS3 = true;
+    // Apagar todos los OTROS chips del mismo grupo (chip "decsi" no debe combinarse con "decver", etc.)
+    // En este caso, decsi/decver son exclusivos entre sí
+    if (chipKey === 'decsi') opts.selDecVer = false;
+    if (chipKey === 'decver') opts.selDecSi = false;
+    // prox y proxremate también son redundantes uno sobre otro
+    if (chipKey === 'proxremate') opts.selProx = false;
+    if (chipKey === 'prox') opts.selProxRemate = false;
+    return countWith(opts);
+  }
+
+  // Actualizar el badge de cada chip
+  document.querySelectorAll('.chip').forEach(chip => {
+    const key = chip.dataset.key;
+    if (!key) return;
+    const span = chip.querySelector('.n');
+    if (!span) return;
+    const n = countForChip(key);
+    span.textContent = n;
+    // Si el chip NO está activo y su contador es 0 → ocultar.
+    // Si está activo, dejarlo visible aunque sea 0 (para que el usuario pueda desactivarlo).
+    const estaActivo = chip.classList.contains('active');
+    chip.style.display = (n === 0 && !estaActivo) ? 'none' : '';
+  });
+
+  // Actualizar el badge de cada botón de fecha (abogado-bar)
+  document.querySelectorAll('#abogadoBar .abog-btn').forEach(btn => {
+    const span = btn.querySelector('.n');
+    if (!span) return;
+    let n;
+    if (btn.dataset.key === 'all') {
+      const opts = { ...filtrosActivos, selFecha: null };
+      n = countWith(opts);
+    } else {
+      const fechaKey = btn.dataset.fecha;
+      const opts = { ...filtrosActivos, selFecha: fechaKey };
+      n = countWith(opts);
+    }
+    span.textContent = n;
+    // Ocultar botones de fecha con 0 (salvo "Todas las fechas" y el activo)
+    const estaActivo = btn.classList.contains('active');
+    const esTodas = btn.dataset.key === 'all';
+    btn.style.display = (n === 0 && !estaActivo && !esTodas) ? 'none' : '';
+  });
 }
 
 function renderCards(list) {
