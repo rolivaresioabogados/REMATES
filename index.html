@@ -223,6 +223,14 @@
     .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
     .cfg-row label { font-size: 12px; color: var(--muted); }
     .cfg-row input, .cfg-row select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 8px; font-family: var(--mono); font-size: 12px; width: 70px; text-align: center; }
+    .form-field { display: flex; flex-direction: column; gap: 4px; }
+    .form-field label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
+    .form-field input, .form-field select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 13px; min-height: 40px; width: 100%; box-sizing: border-box; font-family: inherit; }
+    .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--accent); }
+    @media (max-width: 600px) {
+      #formRemateGrid { grid-template-columns: 1fr !important; }
+      #formGastoOverlay .form-field { grid-column: 1/-1 !important; }
+    }
     .btn-save { width: 100%; background: var(--accent); border: none; color: #0b1220; padding: 13px; border-radius: 10px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; margin-top: 14px; }
     .btn-close { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 12px; border-radius: 10px; font-size: 13px; font-family: var(--font); cursor: pointer; margin-top: 8px; }
 
@@ -238,6 +246,7 @@
       <div class="logo-text" style="font-size:18px">REMATES</div>
     </div>
     <div class="header-actions">
+      <button class="btn-icon" id="btnNuevo" title="Nuevo">➕</button>
       <button class="btn-icon" id="btnGastos" title="Módulo Gastos">💰</button>
       <button class="btn-icon" id="btnReload" title="Recargar">↻</button>
       <button class="btn-icon" id="btnConfig" title="Configurar">⚙</button>
@@ -264,7 +273,10 @@
   <div class="sheet">
     <div class="handle"></div>
     <div id="detailContent"></div>
-    <button class="btn-close" id="btnCloseDetail" style="margin-top:18px">Cerrar</button>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="btn-save" id="btnEditDetail" style="flex:1">✎ Editar</button>
+      <button class="btn-close" id="btnCloseDetail" style="flex:1;margin-top:0">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -326,6 +338,80 @@
   </div>
 </div>
 
+<!-- NUEVO — SELECTOR (Remate / Gasto) -->
+<div class="overlay overlay-centered" id="nuevoSelectorOverlay">
+  <div class="sheet" style="max-width:440px;text-align:center;padding:32px 22px">
+    <h2 class="sheet-title" style="text-align:center">¿Qué quieres registrar?</h2>
+    <p class="sheet-sub" style="text-align:center">Elige el tipo de registro</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px">
+      <button id="btnNuevoRemateTipo" style="padding:24px 12px;background:var(--surface2);border:2px solid var(--accent);border-radius:14px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="font-size:40px">🔨</div>
+        <div>NUEVO REMATE</div>
+      </button>
+      <button id="btnNuevoGastoTipo" style="padding:24px 12px;background:var(--surface2);border:2px solid #10b981;border-radius:14px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="font-size:40px">💰</div>
+        <div>NUEVO GASTO</div>
+      </button>
+    </div>
+    <button class="btn-close" id="btnCloseNuevoSelector" style="margin-top:20px">Cancelar</button>
+  </div>
+</div>
+
+<!-- FORMULARIO REMATE (nuevo / editar) -->
+<div class="overlay overlay-centered" id="formRemateOverlay">
+  <div class="sheet" style="max-width:640px">
+    <h2 class="sheet-title" style="text-align:center" id="formRemateTitulo">Nuevo Remate</h2>
+    <div id="formRemateGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <div class="form-field"><label>Fecha remate</label><input id="fr_fecha" type="date" /></div>
+      <div class="form-field"><label>Hora</label><input id="fr_hora" type="time" /></div>
+      <div class="form-field"><label>Fecha publicación</label><input id="fr_fechapub" type="date" /></div>
+      <div class="form-field"><label>Zoom</label><select id="fr_zoom"><option value="">—</option><option>SI</option><option>NO</option></select></div>
+      <div class="form-field" style="grid-column:1/-1"><label>Inmueble</label><input id="fr_inmueble" placeholder="Dirección completa"/></div>
+      <div class="form-field" style="grid-column:1/-1"><label>Ubicación (link Maps)</label><input id="fr_ubicacion" placeholder="https://maps.app.goo.gl/..."/></div>
+      <div class="form-field"><label>Mínimo</label><input id="fr_minimo" placeholder="64.710.790"/></div>
+      <div class="form-field"><label>Documentos (link)</label><input id="fr_docs" placeholder="URL o NO"/></div>
+      <div class="form-field"><label>Demandante</label><input id="fr_demandante" placeholder="SANTANDER, ESTADO..."/></div>
+      <div class="form-field"><label>Juicio (rol)</label><input id="fr_juicio" placeholder="C-3035-2025"/></div>
+      <div class="form-field" style="grid-column:1/-1"><label>Tribunal</label><input id="fr_tribunal" placeholder="2 TEMUCO"/></div>
+      <div class="form-field"><label>Precio compra</label><input id="fr_pcompra" /></div>
+      <div class="form-field"><label>Año compra</label><input id="fr_acompra" /></div>
+      <div class="form-field"><label>Superficie</label><input id="fr_superficie" /></div>
+      <div class="form-field"><label>Avalúo fiscal</label><input id="fr_avaluo" /></div>
+      <div class="form-field"><label>Deuda contribuciones</label><input id="fr_contrib" /></div>
+      <div class="form-field"><label>Forma consignación</label><input id="fr_consig" placeholder="VV, CGRCHILE.COM..."/></div>
+      <div class="form-field" style="grid-column:1/-1"><label>Observaciones</label><input id="fr_obs" /></div>
+      <div class="form-field"><label>Decisión</label><select id="fr_decision"><option value="">—</option><option>SI</option><option>NO</option><option>VER</option></select></div>
+      <div class="form-field"><label>S3</label><select id="fr_s3"><option value="">—</option><option>SI</option><option>NO</option></select></div>
+      <div class="form-field"><label>Instrucción adjudicación</label><input id="fr_madj" /></div>
+      <div class="form-field"><label>Resultado</label><input id="fr_resultado" /></div>
+    </div>
+    <div id="formRemateError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn-save" id="btnGuardarRemate" style="flex:1">Guardar</button>
+      <button class="btn-close" id="btnCancelRemate" style="flex:1">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULARIO GASTO (nuevo / editar) -->
+<div class="overlay overlay-centered" id="formGastoOverlay">
+  <div class="sheet" style="max-width:480px">
+    <h2 class="sheet-title" style="text-align:center" id="formGastoTitulo">Nuevo Gasto</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <div class="form-field" style="grid-column:1/-1"><label>Detalle</label><input id="fg_detalle" placeholder="Concepto del gasto/abono"/></div>
+      <div class="form-field"><label>Tipo</label><select id="fg_movimiento"><option value="gasto">Gasto (egreso)</option><option value="abono">Abono (ingreso/reembolso)</option></select></div>
+      <div class="form-field"><label>Monto</label><input id="fg_monto" type="text" inputmode="decimal" placeholder="500000"/></div>
+      <div class="form-field"><label>Aportante</label><input id="fg_aportante" placeholder="IO, SSS..."/></div>
+      <div class="form-field"><label>Flujo / Costo</label><select id="fg_tipo"><option value="">—</option><option>FLUJO</option><option>COSTO</option></select></div>
+    </div>
+    <div id="formGastoError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn-save" id="btnGuardarGasto" style="flex:1">Guardar</button>
+      <button class="btn-close" id="btnCancelGasto" style="flex:1">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN OVERLAY -->
 <div class="overlay overlay-centered" id="loginOverlay" style="background:rgba(0,0,0,0.95)">
   <div class="sheet" style="max-width:380px;text-align:center;padding:36px 22px">
@@ -343,6 +429,7 @@
 <script>
 const SHEET_ID = '1lWyjXl_Dt60rGs6aIJKa_szH9ov-LC9TJwN3QjE5R3I';
 const SHEET_DATOS_TRIB = 'DATOS TRIBUNALES Y REMATES';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyGSw45VOhHcujBkMM8EcapgFu7vPmR9A1c1lNlv9cs0egfEuh3JTSQCfIOMsMsLCRF/exec';
 
 // ─────────────────────────────────────────────
 // LIMPIEZA AGRESIVA DE SERVICE WORKER VIEJO
@@ -1094,9 +1181,12 @@ function renderCards(list) {
 }
 
 // ── DETAIL MODAL ──
+let currentDetailRemate = null;
+
 function openDetail(id) {
   const r = allRemates.find(x => x.id === id);
   if (!r) return;
+  currentDetailRemate = r;
 
   const fila = (label, val, cls='') => val ? `<div class="di"><div class="di-label">${label}</div><div class="di-val ${cls}">${escapeHtml(val)}</div></div>` : '';
   const filaFull = (label, val, cls='') => val ? `<div class="di full"><div class="di-label">${label}</div><div class="di-val ${cls}">${escapeHtml(val)}</div></div>` : '';
@@ -1245,6 +1335,11 @@ function fallbackCopy(txt, btn) {
 }
 
 document.getElementById('btnCloseDetail').addEventListener('click', () => closeOverlay('detailOverlay'));
+document.getElementById('btnEditDetail').addEventListener('click', () => {
+  if (currentDetailRemate) {
+    abrirFormRemate(currentDetailRemate);
+  }
+});
 document.getElementById('detailOverlay').addEventListener('click', e => { if (e.target.id === 'detailOverlay') closeOverlay('detailOverlay'); });
 
 document.getElementById('btnReload').addEventListener('click', loadData);
@@ -1451,15 +1546,17 @@ function renderGastos() {
     return;
   }
 
-  let detalleHtml = `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${filtrados.length} registros</div>`;
+  let detalleHtml = `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${filtrados.length} registros · toca uno para editar</div>`;
   detalleHtml += `<div style="display:flex;flex-direction:column;gap:4px">`;
   filtrados.forEach(r => {
+    // idxOriginal: índice en el array gastosData (que se corresponde con fila-2 en Sheets)
+    const idxOriginal = gastosData.indexOf(r);
     const esGasto = r.gasto === 'SI';
     const esAbono = r.abono === 'SI';
     const color = esGasto ? '#ef4444' : esAbono ? '#10b981' : 'var(--muted)';
     const signo = esGasto ? '-' : esAbono ? '+' : '';
     const tipoColor = r.tipo && r.tipo.toUpperCase().includes('COSTO') ? '#a78bfa' : '#3b82f6';
-    detalleHtml += `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px">
+    detalleHtml += `<div class="gasto-item" data-idx="${idxOriginal}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.detalle) || '—'}</div>
         <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:1px">${escapeHtml(r.aportante) || '—'}${r.tipo ? ` · <span style="color:${tipoColor}">${escapeHtml(r.tipo)}</span>` : ''}</div>
@@ -1469,6 +1566,15 @@ function renderGastos() {
   });
   detalleHtml += `</div>`;
   document.getElementById('gastosDetalle').innerHTML = detalleHtml;
+
+  // Click handlers en cada item para editar
+  document.querySelectorAll('.gasto-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const idx = parseInt(item.dataset.idx, 10);
+      const gasto = gastosData[idx];
+      if (gasto) abrirFormGasto(gasto, idx);
+    });
+  });
 }
 
 function renderPie(aportantes, saldos) {
@@ -1518,6 +1624,226 @@ document.getElementById('btnGastos').addEventListener('click', () => {
 document.getElementById('btnCloseGastos').addEventListener('click', () => closeOverlay('gastosOverlay'));
 document.getElementById('gastosOverlay').addEventListener('click', e => {
   if (e.target.id === 'gastosOverlay') closeOverlay('gastosOverlay');
+});
+
+// ═══════════════════════════════════════════════
+// FORMULARIOS: NUEVO / EDITAR (Remate y Gasto)
+// ═══════════════════════════════════════════════
+
+// Estado de edición (null = nuevo, número = índice del array = fila-2 en planilla)
+let editingRemateId = null;
+let editingGastoId = null;
+
+// --- Utilidades ---
+function guardarViaBackend(datosObj, onSuccess, onError) {
+  // Enviamos con URLSearchParams + no-cors (patrón que funcionó en CAUSAS)
+  const form = new URLSearchParams();
+  Object.keys(datosObj).forEach(k => {
+    if (datosObj[k] !== undefined && datosObj[k] !== null) {
+      form.append(k, datosObj[k]);
+    }
+  });
+  fetch(BACKEND_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: form
+  }).then(() => {
+    // Con no-cors no podemos leer la respuesta. Asumimos éxito.
+    onSuccess();
+  }).catch(err => onError(err));
+}
+
+// Formatea fecha JS (o Excel serial) a YYYY-MM-DD para <input type="date">
+function fechaAInput(f) {
+  if (!f) return '';
+  const d = f instanceof Date ? f : new Date(f);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Convierte YYYY-MM-DD del input a DD/MM/YYYY para escribir en Sheets
+function inputAFecha(v) {
+  if (!v) return '';
+  const parts = v.split('-');
+  if (parts.length !== 3) return v;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// ═══════════════════════════════════════════════
+// FORMULARIO REMATE
+// ═══════════════════════════════════════════════
+
+function abrirFormRemate(remate) {
+  editingRemateId = remate ? remate.id : null;
+  document.getElementById('formRemateTitulo').textContent = remate ? 'Editar Remate' : 'Nuevo Remate';
+  document.getElementById('formRemateError').style.display = 'none';
+
+  // Precargar valores
+  document.getElementById('fr_fecha').value       = remate ? fechaAInput(remate._fecha) : '';
+  document.getElementById('fr_hora').value        = remate ? (remate.hora || '') : '';
+  document.getElementById('fr_fechapub').value    = remate ? fechaAInput(remate.fechaPub) : '';
+  document.getElementById('fr_zoom').value        = remate ? (remate.zoom || '') : '';
+  document.getElementById('fr_inmueble').value    = remate ? (remate.inmueble || '') : '';
+  document.getElementById('fr_ubicacion').value   = remate ? (remate.ubicacion || '') : '';
+  document.getElementById('fr_minimo').value      = remate ? (remate.minimo || '') : '';
+  document.getElementById('fr_docs').value        = remate ? (remate.docs || '') : '';
+  document.getElementById('fr_demandante').value  = remate ? (remate.demandante || '') : '';
+  document.getElementById('fr_juicio').value      = remate ? (remate.juicio || '') : '';
+  document.getElementById('fr_tribunal').value    = remate ? (remate.tribunal || '') : '';
+  document.getElementById('fr_pcompra').value     = remate ? (remate.pcompra || '') : '';
+  document.getElementById('fr_acompra').value     = remate ? (remate.acompra || '') : '';
+  document.getElementById('fr_superficie').value  = remate ? (remate.superficie || '') : '';
+  document.getElementById('fr_avaluo').value      = remate ? (remate.avaluo || '') : '';
+  document.getElementById('fr_contrib').value     = remate ? (remate.contrib || '') : '';
+  document.getElementById('fr_consig').value      = remate ? (remate.consig || '') : '';
+  document.getElementById('fr_obs').value         = remate ? (remate.obs || '') : '';
+  document.getElementById('fr_decision').value    = remate ? (remate.decision || '') : '';
+  document.getElementById('fr_madj').value        = remate ? (remate.madj || '') : '';
+  document.getElementById('fr_resultado').value   = remate ? (remate.resultado || '') : '';
+  document.getElementById('fr_s3').value          = remate ? (remate.s3 || '') : '';
+
+  document.getElementById('formRemateOverlay').classList.add('open');
+}
+
+function guardarRemateForm() {
+  const btn = document.getElementById('btnGuardarRemate');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  const datos = {
+    hoja: 'REMATES',
+    editingId: editingRemateId !== null ? String(editingRemateId) : '',
+    fecha:      inputAFecha(document.getElementById('fr_fecha').value),
+    hora:       document.getElementById('fr_hora').value,
+    fechapub:   inputAFecha(document.getElementById('fr_fechapub').value),
+    zoom:       document.getElementById('fr_zoom').value,
+    inmueble:   document.getElementById('fr_inmueble').value,
+    ubicacion:  document.getElementById('fr_ubicacion').value,
+    minimo:     document.getElementById('fr_minimo').value,
+    docs:       document.getElementById('fr_docs').value,
+    demandante: document.getElementById('fr_demandante').value,
+    juicio:     document.getElementById('fr_juicio').value,
+    tribunal:   document.getElementById('fr_tribunal').value,
+    pcompra:    document.getElementById('fr_pcompra').value,
+    acompra:    document.getElementById('fr_acompra').value,
+    superficie: document.getElementById('fr_superficie').value,
+    avaluo:     document.getElementById('fr_avaluo').value,
+    contrib:    document.getElementById('fr_contrib').value,
+    consig:     document.getElementById('fr_consig').value,
+    obs:        document.getElementById('fr_obs').value,
+    decision:   document.getElementById('fr_decision').value,
+    madj:       document.getElementById('fr_madj').value,
+    resultado:  document.getElementById('fr_resultado').value,
+    s3:         document.getElementById('fr_s3').value
+  };
+
+  guardarViaBackend(datos, () => {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+    closeOverlay('formRemateOverlay');
+    // Cerrar el detalle si estaba abierto
+    closeOverlay('detailOverlay');
+    // Recargar datos después de un momento para que Sheets termine de propagar
+    setTimeout(() => loadData(), 800);
+  }, (err) => {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+    const e = document.getElementById('formRemateError');
+    e.textContent = 'Error al guardar: ' + err;
+    e.style.display = 'block';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// FORMULARIO GASTO
+// ═══════════════════════════════════════════════
+
+function abrirFormGasto(gasto, idxLocal) {
+  // idxLocal: índice dentro del array gastosData (que se corresponde con fila-2 en Sheets)
+  editingGastoId = (idxLocal !== undefined && idxLocal !== null) ? idxLocal : null;
+  document.getElementById('formGastoTitulo').textContent = gasto ? 'Editar Gasto' : 'Nuevo Gasto';
+  document.getElementById('formGastoError').style.display = 'none';
+
+  document.getElementById('fg_detalle').value    = gasto ? (gasto.detalle || '') : '';
+  document.getElementById('fg_monto').value      = gasto ? (gasto.monto || '') : '';
+  document.getElementById('fg_aportante').value  = gasto ? (gasto.aportante || '') : '';
+  document.getElementById('fg_tipo').value       = gasto ? (gasto.tipo || '') : '';
+
+  // El campo "tipo de movimiento" (gasto/abono) se deduce de las columnas B y C
+  const esAbono = gasto && gasto.abono === 'SI';
+  document.getElementById('fg_movimiento').value = esAbono ? 'abono' : 'gasto';
+
+  document.getElementById('formGastoOverlay').classList.add('open');
+}
+
+function guardarGastoForm() {
+  const btn = document.getElementById('btnGuardarGasto');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  const movimiento = document.getElementById('fg_movimiento').value;
+
+  const datos = {
+    hoja: 'GASTOS',
+    editingId: editingGastoId !== null ? String(editingGastoId) : '',
+    detalle:    document.getElementById('fg_detalle').value,
+    gasto:      movimiento === 'gasto' ? 'SI' : 'NO',
+    abono:      movimiento === 'abono' ? 'SI' : 'NO',
+    monto:      document.getElementById('fg_monto').value.replace(/\./g, '').replace(',', '.'),
+    aportante:  document.getElementById('fg_aportante').value,
+    tipo:       document.getElementById('fg_tipo').value
+  };
+
+  guardarViaBackend(datos, () => {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+    closeOverlay('formGastoOverlay');
+    // Recargar el módulo gastos si está abierto
+    setTimeout(() => {
+      if (document.getElementById('gastosOverlay').classList.contains('open')) {
+        loadGastos();
+      }
+    }, 800);
+  }, (err) => {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+    const e = document.getElementById('formGastoError');
+    e.textContent = 'Error al guardar: ' + err;
+    e.style.display = 'block';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// EVENT HANDLERS
+// ═══════════════════════════════════════════════
+
+document.getElementById('btnNuevo').addEventListener('click', () => {
+  document.getElementById('nuevoSelectorOverlay').classList.add('open');
+});
+document.getElementById('btnCloseNuevoSelector').addEventListener('click', () => closeOverlay('nuevoSelectorOverlay'));
+document.getElementById('nuevoSelectorOverlay').addEventListener('click', e => {
+  if (e.target.id === 'nuevoSelectorOverlay') closeOverlay('nuevoSelectorOverlay');
+});
+
+document.getElementById('btnNuevoRemateTipo').addEventListener('click', () => {
+  closeOverlay('nuevoSelectorOverlay');
+  abrirFormRemate(null);
+});
+document.getElementById('btnNuevoGastoTipo').addEventListener('click', () => {
+  closeOverlay('nuevoSelectorOverlay');
+  abrirFormGasto(null, null);
+});
+
+document.getElementById('btnGuardarRemate').addEventListener('click', guardarRemateForm);
+document.getElementById('btnCancelRemate').addEventListener('click', () => closeOverlay('formRemateOverlay'));
+document.getElementById('formRemateOverlay').addEventListener('click', e => {
+  if (e.target.id === 'formRemateOverlay') closeOverlay('formRemateOverlay');
+});
+
+document.getElementById('btnGuardarGasto').addEventListener('click', guardarGastoForm);
+document.getElementById('btnCancelGasto').addEventListener('click', () => closeOverlay('formGastoOverlay'));
+document.getElementById('formGastoOverlay').addEventListener('click', e => {
+  if (e.target.id === 'formGastoOverlay') closeOverlay('formGastoOverlay');
 });
 
 // ═══════════════════════════════════════════════
