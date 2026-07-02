@@ -229,6 +229,7 @@
       <div class="logo-text" style="font-size:18px">REMATES</div>
     </div>
     <div class="header-actions">
+      <button class="btn-icon" id="btnGastos" title="Módulo Gastos">💰</button>
       <button class="btn-icon" id="btnReload" title="Recargar">↻</button>
       <button class="btn-icon" id="btnConfig" title="Configurar">⚙</button>
     </div>
@@ -289,6 +290,44 @@
     <div class="cfg-row"><label>S3</label><input id="col_s3" /></div>
     <button class="btn-save" id="btnSaveConfig">Guardar</button>
     <button class="btn-close" id="btnCloseConfig">Cancelar</button>
+  </div>
+</div>
+
+<!-- GASTOS MODAL -->
+<div class="overlay" id="gastosOverlay">
+  <div class="sheet" style="max-width:900px">
+    <div class="handle"></div>
+    <h2 class="sheet-title" style="text-align:center;letter-spacing:1px">MÓDULO GASTOS</h2>
+
+    <!-- Saldos + gráfico -->
+    <div id="gastosSaldos" style="margin:12px 0"></div>
+
+    <!-- Gráfico de torta -->
+    <div style="display:flex;justify-content:center;margin:20px 0">
+      <svg id="gastosPie" width="240" height="240" viewBox="0 0 240 240"></svg>
+    </div>
+
+    <!-- Chips de aportantes -->
+    <div class="bar-row" id="gastosChips" style="margin:14px 0"></div>
+
+    <!-- Detalle de gastos -->
+    <div id="gastosDetalle" style="margin-top:14px"></div>
+
+    <button class="btn-close" id="btnCloseGastos">Cerrar</button>
+  </div>
+</div>
+
+<!-- LOGIN OVERLAY -->
+<div class="overlay" id="loginOverlay" style="background:rgba(0,0,0,0.95)">
+  <div class="sheet" style="max-width:400px;text-align:center;padding:40px 24px">
+    <div style="font-size:48px;margin-bottom:12px">🔒</div>
+    <h2 class="sheet-title" style="text-align:center">Acceso restringido</h2>
+    <p class="sheet-sub" style="text-align:center">Ingresa la clave para continuar</p>
+    <input id="loginInput" type="password" placeholder="Clave"
+      style="width:100%;padding:12px 14px;font-size:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);margin:16px 0"
+      autocomplete="off" />
+    <button class="btn-save" id="btnLogin" style="width:100%">Ingresar</button>
+    <div id="loginError" style="color:#ef4444;margin-top:10px;font-size:13px;display:none">Clave incorrecta</div>
   </div>
 </div>
 
@@ -1239,7 +1278,249 @@ function showError(msg) {
 
 // (Limpieza de service worker movida al inicio del script)
 
-loadData();
+// ═══════════════════════════════════════════════
+// LOGIN (clave compartida en sessionStorage)
+// ═══════════════════════════════════════════════
+const CLAVE_ACCESO = 'Raot7012';
+const LOGIN_KEY = 'remates_auth';
+
+function checkAuth() {
+  if (sessionStorage.getItem(LOGIN_KEY) === '1') {
+    document.getElementById('loginOverlay').style.display = 'none';
+    return true;
+  }
+  document.getElementById('loginOverlay').classList.add('open');
+  document.getElementById('loginOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('loginInput').focus(), 100);
+  return false;
+}
+
+function tryLogin() {
+  const val = document.getElementById('loginInput').value;
+  if (val === CLAVE_ACCESO) {
+    sessionStorage.setItem(LOGIN_KEY, '1');
+    document.getElementById('loginOverlay').classList.remove('open');
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('loginError').style.display = 'none';
+    loadData();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginInput').value = '';
+    document.getElementById('loginInput').focus();
+  }
+}
+
+document.getElementById('btnLogin').addEventListener('click', tryLogin);
+document.getElementById('loginInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+// ═══════════════════════════════════════════════
+// MÓDULO GASTOS
+// ═══════════════════════════════════════════════
+let gastosData = [];      // array de {detalle, gasto, abono, monto, aportante, tipo}
+let filtroAportante = ''; // '' = todos
+
+const COLORES_PIE = ['#f97316', '#10b981', '#3b82f6', '#a78bfa', '#fbbf24', '#ef4444', '#14b8a6', '#ec4899', '#8b5cf6'];
+
+async function loadGastos() {
+  document.getElementById('gastosDetalle').innerHTML = `<div class="state-box"><div class="spinner"></div><p>Cargando gastos…</p></div>`;
+  try {
+    const ts = Date.now() + '_' + Math.random().toString(36).slice(2);
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=GASTOS&range=A2:F500&_t=${ts}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    const txt = await res.text();
+    const jsonMatch = txt.match(/setResponse\((.*)\)/s);
+    if (!jsonMatch) throw new Error('Formato de respuesta inesperado');
+    const data = JSON.parse(jsonMatch[1]);
+    const rows = data.table.rows || [];
+
+    gastosData = rows.map(row => {
+      const c = row.c || [];
+      const get = (i) => {
+        const cell = c[i];
+        if (!cell) return '';
+        const v = (cell.f !== null && cell.f !== undefined && cell.f !== '') ? cell.f : cell.v;
+        return v == null ? '' : String(v).trim();
+      };
+      const getNum = (i) => {
+        const cell = c[i];
+        if (!cell || cell.v == null) return 0;
+        const n = parseFloat(cell.v);
+        return isNaN(n) ? 0 : n;
+      };
+      return {
+        detalle: get(0),
+        gasto: get(1).toUpperCase(),
+        abono: get(2).toUpperCase(),
+        monto: getNum(3),
+        aportante: get(4),
+        tipo: get(5)
+      };
+    }).filter(r => r.detalle || r.monto > 0);
+
+    renderGastos();
+  } catch (err) {
+    document.getElementById('gastosDetalle').innerHTML = `<div class="state-box"><div class="icon">⚠️</div><h3>Error al cargar</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+function calcularSaldos() {
+  // Por cada aportante: suma monto GASTO=SI y resta monto ABONO=SI
+  const saldos = {};
+  gastosData.forEach(r => {
+    if (!r.aportante) return;
+    if (!saldos[r.aportante]) saldos[r.aportante] = { egresos: 0, abonos: 0, saldo: 0 };
+    if (r.gasto === 'SI') saldos[r.aportante].egresos += r.monto;
+    if (r.abono === 'SI') saldos[r.aportante].abonos += r.monto;
+  });
+  Object.keys(saldos).forEach(k => {
+    saldos[k].saldo = saldos[k].egresos - saldos[k].abonos;
+  });
+  return saldos;
+}
+
+function renderGastos() {
+  const saldos = calcularSaldos();
+  const aportantes = Object.keys(saldos).sort();
+
+  // Sección de saldos con reembolsos
+  const totalEgresos = aportantes.reduce((s, k) => s + saldos[k].egresos, 0);
+  const promedio = aportantes.length > 0 ? totalEgresos / aportantes.length : 0;
+
+  let saldosHtml = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">`;
+  saldosHtml += `<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Saldos</div>`;
+  aportantes.forEach(k => {
+    const s = saldos[k];
+    const dif = s.saldo - promedio;
+    const aFavor = dif > 0;
+    const debe = dif < 0;
+    const color = aFavor ? '#10b981' : debe ? '#ef4444' : 'var(--muted)';
+    const etiqueta = aFavor ? `a favor $${formatoNumero(dif)}` : debe ? `debe reembolsar $${formatoNumero(-dif)}` : 'equilibrado';
+    saldosHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+      <div>
+        <div style="font-weight:700">${escapeHtml(k)}</div>
+        <div style="font-size:11px;color:var(--muted)">Aportado: $${formatoNumero(s.egresos)}${s.abonos ? ` · Reembolsado: $${formatoNumero(s.abonos)}` : ''}</div>
+      </div>
+      <div style="color:${color};font-weight:700;font-family:var(--mono);font-size:13px">${etiqueta}</div>
+    </div>`;
+  });
+  saldosHtml += `</div>`;
+  document.getElementById('gastosSaldos').innerHTML = saldosHtml;
+
+  // Gráfico de torta (proporcional a EGRESOS de cada aportante)
+  renderPie(aportantes, saldos);
+
+  // Chips por aportante + Todos
+  let chipsHtml = `<div class="chip ${filtroAportante === '' ? 'active' : ''}" data-aportante="" style="background:${filtroAportante === '' ? 'var(--accent)' : 'var(--surface2)'};color:${filtroAportante === '' ? '#fff' : 'var(--text)'}"><span>TODOS</span> <span class="n">${gastosData.length}</span></div>`;
+  aportantes.forEach((k, i) => {
+    const color = COLORES_PIE[i % COLORES_PIE.length];
+    const activo = filtroAportante === k;
+    chipsHtml += `<div class="chip ${activo ? 'active' : ''}" data-aportante="${escapeHtml(k)}" style="background:${activo ? color : 'var(--surface2)'};color:${activo ? '#fff' : 'var(--text)'};border-color:${color}">
+      <span style="width:8px;height:8px;background:${color};border-radius:50%;display:inline-block;margin-right:6px"></span>
+      <span>${escapeHtml(k)}</span>
+      <span class="n">$${formatoNumero(saldos[k].egresos)}</span>
+    </div>`;
+  });
+  document.getElementById('gastosChips').innerHTML = chipsHtml;
+
+  // Click handlers en chips
+  document.querySelectorAll('#gastosChips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      filtroAportante = chip.dataset.aportante;
+      renderGastos();
+    });
+  });
+
+  // Detalle de gastos (formato tarjeta similar a remates)
+  const filtrados = filtroAportante ? gastosData.filter(r => r.aportante === filtroAportante) : gastosData;
+  if (filtrados.length === 0) {
+    document.getElementById('gastosDetalle').innerHTML = `<div class="state-box"><p>No hay gastos para mostrar</p></div>`;
+    return;
+  }
+
+  let detalleHtml = `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${filtrados.length} registros</div>`;
+  filtrados.forEach(r => {
+    const esGasto = r.gasto === 'SI';
+    const esAbono = r.abono === 'SI';
+    const color = esGasto ? '#ef4444' : esAbono ? '#10b981' : 'var(--muted)';
+    const signo = esGasto ? '-' : esAbono ? '+' : '';
+    const tipoTag = r.tipo ? `<span class="tag">${escapeHtml(r.tipo)}</span>` : '';
+    detalleHtml += `<div class="card" style="border-color:var(--border)">
+      <div class="card-top">
+        <div style="flex:1">
+          <div class="card-name">${escapeHtml(r.detalle) || 'Sin detalle'}</div>
+          <div class="card-sub">${escapeHtml(r.aportante) || '—'}</div>
+        </div>
+        <div style="font-family:var(--mono);font-weight:800;color:${color};font-size:16px">${signo}$${formatoNumero(r.monto)}</div>
+      </div>
+      ${tipoTag ? `<div class="card-tags">${tipoTag}</div>` : ''}
+    </div>`;
+  });
+  document.getElementById('gastosDetalle').innerHTML = detalleHtml;
+}
+
+function renderPie(aportantes, saldos) {
+  const svg = document.getElementById('gastosPie');
+  const total = aportantes.reduce((s, k) => s + saldos[k].egresos, 0);
+  if (total === 0) {
+    svg.innerHTML = `<circle cx="120" cy="120" r="90" fill="none" stroke="var(--border)" stroke-width="2"/><text x="120" y="125" text-anchor="middle" fill="var(--muted)" font-size="13">Sin datos</text>`;
+    return;
+  }
+  const cx = 120, cy = 120, r = 90;
+  let acc = 0;
+  let paths = '';
+  aportantes.forEach((k, i) => {
+    const monto = saldos[k].egresos;
+    if (monto === 0) return;
+    const startAngle = (acc / total) * 2 * Math.PI - Math.PI / 2;
+    acc += monto;
+    const endAngle = (acc / total) * 2 * Math.PI - Math.PI / 2;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+    const color = COLORES_PIE[i % COLORES_PIE.length];
+    // Etiqueta
+    const midAngle = (startAngle + endAngle) / 2;
+    const lx = cx + (r * 0.65) * Math.cos(midAngle);
+    const ly = cy + (r * 0.65) * Math.sin(midAngle);
+    const pct = Math.round((monto / total) * 100);
+    paths += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (pct >= 5) {
+      paths += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="14" font-weight="700">${pct}%</text>`;
+    }
+  });
+  svg.innerHTML = paths;
+}
+
+function formatoNumero(n) {
+  return Math.round(n).toLocaleString('es-CL');
+}
+
+// Handlers del modal
+document.getElementById('btnGastos').addEventListener('click', () => {
+  document.getElementById('gastosOverlay').classList.add('open');
+  loadGastos();
+});
+document.getElementById('btnCloseGastos').addEventListener('click', () => closeOverlay('gastosOverlay'));
+document.getElementById('gastosOverlay').addEventListener('click', e => {
+  if (e.target.id === 'gastosOverlay') closeOverlay('gastosOverlay');
+});
+
+// ═══════════════════════════════════════════════
+// INICIALIZACIÓN
+// ═══════════════════════════════════════════════
+if (checkAuth()) {
+  loadData();
+}
+
 </script>
 </body>
 </html>
