@@ -1,14 +1,12 @@
 {
-  "name": "Remates - Seguimiento",
-  "short_name": "Remates",
-  "description": "Seguimiento de remates judiciales",
+  "name": "REMATES IO ABOGADOS",
+  "short_name": "REMATES",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "orientation": "portrait",
-  "background_color": "#0b1220",
-  "theme_color": "#0b1220",
-  "lang": "es-CL",
   "icons": [
     {
       "src": "icon-192.png",
