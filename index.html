@@ -235,48 +235,47 @@
     }
     .form-field input,
     .form-field select {
+      box-sizing: border-box;
+      width: 100%;
+      height: 42px;
+      min-height: 42px;
+      padding: 0 12px;
+      margin: 0;
       background: var(--surface2);
       border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0 12px;
       border-radius: 8px;
-      font-size: 14px;
-      height: 44px;
-      line-height: 44px;
-      width: 100%;
-      box-sizing: border-box;
+      color: var(--text);
       font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.2;
       text-align: left;
+      vertical-align: middle;
       -webkit-appearance: none;
       -moz-appearance: none;
       appearance: none;
-      display: block;
+      outline: none;
     }
     .form-field input:focus,
-    .form-field select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    /* Chevron manual para el <select> (ya que quitamos el nativo) */
+    .form-field select:focus { border-color: var(--accent); }
+    /* Chevron manual para el <select> */
     .form-field select {
+      padding-right: 34px;
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='none' stroke='%2364748b' stroke-width='1.5' d='M1 1l5 5 5-5'/></svg>");
       background-repeat: no-repeat;
       background-position: right 12px center;
-      padding-right: 34px;
     }
-    /* iOS: alinear a la izquierda date/time y mantener altura aunque estén vacíos */
+    /* iOS: date/time con el mismo alto y texto a la izquierda */
     .form-field input[type="date"],
     .form-field input[type="time"] {
-      min-height: 44px;
-      line-height: normal;
+      height: 42px;
+      min-height: 42px;
       padding: 0 12px;
-      display: flex;
-      align-items: center;
+      line-height: normal;
     }
     .form-field input[type="date"]::-webkit-date-and-time-value,
     .form-field input[type="time"]::-webkit-date-and-time-value {
       text-align: left;
-      width: 100%;
+      padding: 0;
     }
     .form-field input::placeholder { color: var(--muted); }
 
