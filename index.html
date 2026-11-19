@@ -47,8 +47,15 @@
 
     /* FILTER BARS */
     #filterBars { background: #0b1220; border-bottom: 1px solid var(--border); z-index: 99; }
-    .bar-row { display: flex; gap: 10px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; }
+    .bar-row { display: flex; gap: 10px; padding: 12px 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; }
     .bar-row::-webkit-scrollbar { display: none; }
+    /* PC (mouse): barra de desplazamiento fina visible + cursor de arrastre */
+    @media (hover: hover) and (pointer: fine) {
+      .bar-row { scrollbar-width: thin; scrollbar-color: var(--border) transparent; cursor: grab; }
+      .bar-row::-webkit-scrollbar { display: block; height: 6px; }
+      .bar-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+      .bar-row.dragging { cursor: grabbing; user-select: none; }
+    }
 
     /* CHIPS (multi select) */
     .chip {
@@ -1908,6 +1915,42 @@ if (checkAuth()) {
   loadData();
 }
 
+
+// ── SCROLL HORIZONTAL DE BARRAS (rueda del mouse + arrastre en PC) ──
+(function habilitarScrollBarras() {
+  document.querySelectorAll('.bar-row').forEach(bar => {
+    // Rueda vertical del mouse -> desplazamiento horizontal
+    bar.addEventListener('wheel', e => {
+      if (bar.scrollWidth <= bar.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        bar.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    // Arrastrar con el mouse
+    let down = false, moved = false, startX = 0, startLeft = 0;
+    bar.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      down = true; moved = false; startX = e.clientX; startLeft = bar.scrollLeft;
+    });
+    window.addEventListener('pointermove', e => {
+      if (!down) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 5) { moved = true; bar.classList.add('dragging'); }
+      if (moved) bar.scrollLeft = startLeft - dx;
+    });
+    window.addEventListener('pointerup', () => {
+      if (!down) return;
+      down = false;
+      bar.classList.remove('dragging');
+    });
+    // Si fue arrastre, no activar el botón al soltar
+    bar.addEventListener('click', e => {
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+  });
+})();
 </script>
 </body>
 </html>
